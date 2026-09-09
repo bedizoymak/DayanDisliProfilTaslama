@@ -49,7 +49,12 @@ import com.dayandisli.calculator.ui.theme.Spacing
 /** Machine name dominant, followed by action cards for the two shipped calculation modules
  * (Düz Dişli / Helis Dişli). No placeholder/unsupported operations are surfaced here. */
 @Composable
-fun MachineDetailScreen(machineId: String, onSpur: () -> Unit, onHelical: () -> Unit) {
+fun MachineDetailScreen(
+    machineId: String,
+    onSpur: () -> Unit,
+    onHelical: () -> Unit,
+    spurAvailable: Boolean = true,
+) {
     val machine = getMachineById(machineId)
 
     ContentContainer(
@@ -95,6 +100,7 @@ fun MachineDetailScreen(machineId: String, onSpur: () -> Unit, onHelical: () -> 
             accent = ModuleAccent.Spur,
             primary = true,
             onClick = onSpur,
+            enabled = spurAvailable,
         )
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.sm))
         OperationCard(
@@ -126,6 +132,7 @@ fun MachineDetailScreen(machineId: String, onSpur: () -> Unit, onHelical: () -> 
                 }
             }
         }
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 80.dp))
     }
 }
 
@@ -137,13 +144,16 @@ private fun OperationCard(
     accent: ModuleAccent,
     primary: Boolean,
     onClick: () -> Unit,
+    enabled: Boolean = true,
     imageRes: Int? = null,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.5f),
         shape = RoundedCornerShape(Radius.lg),
         colors = CardDefaults.cardColors(containerColor = AppColors.Slate800),
-        border = BorderStroke(1.dp, AppColors.Slate700),
+        border = BorderStroke(1.dp, if (enabled) AppColors.Slate700 else AppColors.Slate800),
     ) {
         Column(modifier = Modifier.padding(Spacing.lg)) {
             if (imageRes != null) {
@@ -174,17 +184,19 @@ private fun OperationCard(
             if (primary) {
                 Button(
                     onClick = onClick,
+                    enabled = enabled,
                     modifier = Modifier.fillMaxWidth().height(Dimens.fieldHeight),
                     shape = RoundedCornerShape(Radius.md),
                     colors = ButtonDefaults.buttonColors(containerColor = accent.strong),
                 ) {
-                    Text("Hesaplamaya Başla")
+                    Text(if (enabled) "Hesaplamaya Başla" else "Henüz Hazır Değil")
                     androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(start = Spacing.xs))
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                 }
             } else {
                 OutlinedButton(
                     onClick = onClick,
+                    enabled = enabled,
                     modifier = Modifier.fillMaxWidth().height(Dimens.fieldHeight),
                     shape = RoundedCornerShape(Radius.md),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = accent.onSoft),

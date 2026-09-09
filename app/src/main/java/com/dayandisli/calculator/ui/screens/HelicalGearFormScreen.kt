@@ -1,5 +1,7 @@
 package com.dayandisli.calculator.ui.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +17,8 @@ import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +27,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -73,12 +79,10 @@ fun HelicalGearFormScreen(machineId: String, viewModel: HelicalGearViewModel = v
                 EngineeringTextField("Kavrama Açısı (α)", alphaDeg, viewModel::setAlphaDeg, unit = "°")
                 EngineeringTextField("Helis Açısı (β)", betaDeg, viewModel::setBetaDeg, unit = "°")
 
-                EngineeringDropdown(
-                    label = "Helis Yönü",
-                    options = HelixDirection.entries,
+                HelixDirectionSelector(
                     selected = helixDirection,
-                    optionLabel = { it.label },
                     onSelected = viewModel::setHelixDirection,
+                    accent = ModuleAccent.Helical,
                 )
 
                 if (result != null) {
@@ -102,11 +106,11 @@ fun HelicalGearFormScreen(machineId: String, viewModel: HelicalGearViewModel = v
                 }
             }
 
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
+            if (result != null) {
+                val r = result!!
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
 
-            SectionCard(title = "Hesaplama Sonuçları", modifier = Modifier.fillMaxWidth()) {
-                if (result != null) {
-                    val r = result!!
+                SectionCard(title = "Hesaplama Sonuçları", modifier = Modifier.fillMaxWidth()) {
                     val cells: List<Pair<String, String>> = listOf(
                         "Modül (mn)" to r.mn.toFixedJs(4),
                         "Diş Sayısı (Z)" to r.z.toString(),
@@ -127,12 +131,8 @@ fun HelicalGearFormScreen(machineId: String, viewModel: HelicalGearViewModel = v
                         }
                         androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.sm))
                     }
-                } else {
-                    Text("Geçerli parametreler girin", color = AppColors.Slate400, style = AppType.body)
                 }
-            }
 
-            if (result != null) {
                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
                 Button(
                     onClick = onViewReceipt,
@@ -145,7 +145,53 @@ fun HelicalGearFormScreen(machineId: String, viewModel: HelicalGearViewModel = v
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                 }
             }
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
+
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 80.dp))
+        }
+    }
+}
+
+@Composable
+fun HelixDirectionSelector(
+    selected: HelixDirection,
+    onSelected: (HelixDirection) -> Unit,
+    accent: ModuleAccent,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.padding(bottom = Spacing.md)) {
+        Text("Helis Yönü", style = AppType.fieldLabel, color = AppColors.Slate300)
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 4.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
+            HelixDirection.entries.forEach { dir ->
+                val isSelected = dir == selected
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(Dimens.minTouchTarget)
+                        .clickable { onSelected(dir) },
+                    shape = RoundedCornerShape(Radius.md),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isSelected) accent.strong.copy(alpha = 0.35f) else AppColors.Slate900.copy(alpha = 0.5f),
+                    ),
+                    border = BorderStroke(
+                        if (isSelected) 2.dp else 1.dp,
+                        if (isSelected) accent.onSoft else AppColors.Slate700,
+                    ),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(Dimens.minTouchTarget),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = dir.label,
+                            color = if (isSelected) Color.White else AppColors.Slate400,
+                            style = AppType.fieldLabel,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
         }
     }
 }

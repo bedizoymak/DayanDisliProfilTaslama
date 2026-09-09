@@ -106,11 +106,11 @@ fun SpurGearFormScreen(machineId: String, viewModel: SpurGearViewModel = viewMod
                 }
             }
 
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
+            if (result != null) {
+                val r = result!!
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
 
-            SectionCard(title = "Hesaplama Sonuçları", modifier = Modifier.fillMaxWidth()) {
-                if (result != null) {
-                    val r = result!!
+                SectionCard(title = "Hesaplama Sonuçları", modifier = Modifier.fillMaxWidth()) {
                     val cells = listOf(
                         "Modül (mn)" to (r.mn to null),
                         "Diş Sayısı (Z)" to (r.z.toDouble() to null),
@@ -129,12 +129,8 @@ fun SpurGearFormScreen(machineId: String, viewModel: SpurGearViewModel = viewMod
                         }
                         androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.sm))
                     }
-                } else {
-                    Text("Geçerli parametreler girin", color = AppColors.Slate400, style = AppType.body)
                 }
-            }
 
-            if (result != null) {
                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
                 Button(
                     onClick = onViewReceipt,
@@ -147,7 +143,8 @@ fun SpurGearFormScreen(machineId: String, viewModel: SpurGearViewModel = viewMod
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                 }
             }
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
+
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 80.dp))
         }
     }
 }

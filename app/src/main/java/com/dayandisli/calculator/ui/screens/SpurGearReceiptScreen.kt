@@ -127,7 +127,7 @@ fun SpurGearReceiptScreen(machineId: String, viewModel: SpurGearViewModel = view
                     accentColor = AppColors.Blue400,
                 )
             }
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 80.dp))
         }
     }
 }

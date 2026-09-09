@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -14,14 +15,22 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import com.dayandisli.calculator.domain.normalizeDecimalInput
+import com.dayandisli.calculator.domain.normalizeIntegerInput
 import com.dayandisli.calculator.ui.theme.AppColors
 import com.dayandisli.calculator.ui.theme.AppType
 import com.dayandisli.calculator.ui.theme.Spacing
@@ -53,9 +62,23 @@ fun EngineeringTextField(
     modifier: Modifier = Modifier,
     unit: String? = null,
     supportingText: String? = null,
+    placeholder: String? = null,
     keyboardType: KeyboardType = KeyboardType.Decimal,
+    normalizeInput: Boolean = true,
+    formatOnFocusLost: ((String) -> String)? = null,
+    transformWhileTyping: ((String) -> String)? = null,
+    clearValueOnFirstFocus: String? = null,
     isError: Boolean = false,
 ) {
+    var wasFocused by remember { mutableStateOf(false) }
+    var hasReceivedFocus by remember { mutableStateOf(false) }
+    var textFieldValue by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(value) {
+        if (textFieldValue.text != value) {
+            textFieldValue = TextFieldValue(value, TextRange(value.length))
+        }
+    }
     Column(modifier = modifier.padding(bottom = Spacing.md)) {
         Row {
             Text(label, style = AppType.fieldLabel, color = AppColors.Slate300)
@@ -64,13 +87,47 @@ fun EngineeringTextField(
             }
         }
         OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            value = textFieldValue,
+            onValueChange = { input ->
+                val normalized = when {
+                        transformWhileTyping != null -> transformWhileTyping(input.text)
+                        !normalizeInput -> input.text
+                        keyboardType == KeyboardType.Number -> normalizeIntegerInput(input.text)
+                        else -> normalizeDecimalInput(input.text)
+                    }
+                textFieldValue = TextFieldValue(
+                    text = normalized,
+                    selection = if (normalized != input.text) TextRange(normalized.length) else input.selection,
+                )
+                onValueChange(normalized)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp)
+                .onFocusChanged { state ->
+                    if (!wasFocused && state.isFocused && !hasReceivedFocus && value == clearValueOnFirstFocus) {
+                        onValueChange("")
+                    }
+                    if (wasFocused && !state.isFocused && formatOnFocusLost != null) {
+                        onValueChange(formatOnFocusLost(value))
+                    }
+                    if (state.isFocused) hasReceivedFocus = true
+                    wasFocused = state.isFocused
+                },
+            keyboardOptions = KeyboardOptions(
+                keyboardType = keyboardType,
+                imeAction = if (formatOnFocusLost != null) ImeAction.Done else ImeAction.Next,
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    if (formatOnFocusLost != null) onValueChange(formatOnFocusLost(value))
+                    focusManager.clearFocus()
+                },
+            ),
             colors = engineeringFieldColors(),
             singleLine = true,
             isError = isError,
+            placeholder = placeholder?.let { { Text(it, style = AppType.body, color = AppColors.Slate500) } },
             suffix = if (unit != null) {
                 { Text(unit, style = AppType.supporting, color = AppColors.Slate400) }
             } else {
@@ -119,6 +176,21 @@ fun <T> EngineeringDropdown(
                     )
                 }
             }
+        }
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFF0F172A)
+@Composable
+fun ReishauerAngleInputPreview() {
+    com.dayandisli.calculator.ui.theme.DayanCalculatorTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            EngineeringTextField(
+                label = "Kavrama Açısı (α)",
+                value = "20°35′06″95",
+                onValueChange = {},
+                unit = "D,M,S,CS",
+            )
         }
     }
 }

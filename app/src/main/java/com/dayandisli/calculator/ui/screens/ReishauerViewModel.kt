@@ -5,11 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dayandisli.calculator.domain.GearCombination
 import com.dayandisli.calculator.domain.HelixDirection
+import com.dayandisli.calculator.domain.ReishauerHelisCombination
 import com.dayandisli.calculator.domain.ReishauerResult
 import com.dayandisli.calculator.domain.computeReishauerNominalDiameter
 import com.dayandisli.calculator.domain.computeReishauerParams
 import com.dayandisli.calculator.domain.findReishauerHelisCombinations
 import com.dayandisli.calculator.domain.findReishauerTaksimatCombinations
+import com.dayandisli.calculator.domain.normalizeDecimalInput
 import com.dayandisli.calculator.domain.parseLocaleDouble
 import com.dayandisli.calculator.domain.parseLocaleInt
 import com.dayandisli.calculator.domain.parseReishauerAngle
@@ -33,15 +35,15 @@ class ReishauerViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
 
     val mn: StateFlow<String> = savedStateHandle.getStateFlow(KEY_MN, "2.5")
     val z: StateFlow<String> = savedStateHandle.getStateFlow(KEY_Z, "20")
-    val alphaRaw: StateFlow<String> = savedStateHandle.getStateFlow(KEY_ALPHA, "20")
-    val betaRaw: StateFlow<String> = savedStateHandle.getStateFlow(KEY_BETA, "15")
+    val alphaRaw: StateFlow<String> = savedStateHandle.getStateFlow(KEY_ALPHA, "20°00′00″00")
+    val betaRaw: StateFlow<String> = savedStateHandle.getStateFlow(KEY_BETA, "15°00′00″00")
     val diameterOverride: StateFlow<String> = savedStateHandle.getStateFlow(KEY_DIAMETER, "")
     val helixDirection: StateFlow<HelixDirection> =
         savedStateHandle.getStateFlow(KEY_DIRECTION, HelixDirection.SAG.name)
             .map { HelixDirection.valueOf(it) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HelixDirection.SAG)
 
-    fun setMn(value: String) { savedStateHandle[KEY_MN] = value }
+    fun setMn(value: String) { savedStateHandle[KEY_MN] = normalizeDecimalInput(value) }
     fun setZ(value: String) { savedStateHandle[KEY_Z] = value }
     fun setAlphaRaw(value: String) { savedStateHandle[KEY_ALPHA] = value }
     fun setBetaRaw(value: String) { savedStateHandle[KEY_BETA] = value }
@@ -105,14 +107,16 @@ class ReishauerViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
     private val _taksimatCombinations = MutableStateFlow<List<GearCombination>?>(null)
     val taksimatCombinations: StateFlow<List<GearCombination>?> = _taksimatCombinations.asStateFlow()
 
-    private val _helisCombinations = MutableStateFlow<List<GearCombination>?>(null)
-    val helisCombinations: StateFlow<List<GearCombination>?> = _helisCombinations.asStateFlow()
+    private val _helisCombinations = MutableStateFlow<List<ReishauerHelisCombination>?>(null)
+    val helisCombinations: StateFlow<List<ReishauerHelisCombination>?> = _helisCombinations.asStateFlow()
 
     private var combinationsJob: Job? = null
-    private var combinationsForKey: Pair<Int, Double>? = null
+    private var combinationsForKey: List<Any>? = null
 
-    fun ensureCombinationsFor(z: Int, helixGearRatio: Double) {
-        val key = z to helixGearRatio
+    /** [helixGearRatioFullPrecision] (not the display-rounded ratio) is used as the Helis search
+     * target, per [com.dayandisli.calculator.domain.findReishauerHelisCombinations]. */
+    fun ensureCombinationsFor(z: Int, mn: Double, betaRequestedDeg: Double, helixGearRatioFullPrecision: Double) {
+        val key = listOf(z, mn, betaRequestedDeg, helixGearRatioFullPrecision)
         if (combinationsForKey == key && _taksimatCombinations.value != null && _helisCombinations.value != null) return
         combinationsJob?.cancel()
         combinationsForKey = key
@@ -121,7 +125,9 @@ class ReishauerViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
         combinationsJob = viewModelScope.launch {
             val taksimat = withContext(Dispatchers.Default) { findReishauerTaksimatCombinations(z) }
             _taksimatCombinations.value = taksimat
-            val helis = withContext(Dispatchers.Default) { findReishauerHelisCombinations(helixGearRatio) }
+            val helis = withContext(Dispatchers.Default) {
+                findReishauerHelisCombinations(mn, betaRequestedDeg, helixGearRatioFullPrecision)
+            }
             _helisCombinations.value = helis
         }
     }

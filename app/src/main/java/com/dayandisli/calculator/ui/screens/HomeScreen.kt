@@ -1,22 +1,21 @@
 package com.dayandisli.calculator.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Scale
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -29,10 +28,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dayandisli.calculator.R
 import com.dayandisli.calculator.ui.components.ContentContainer
 import com.dayandisli.calculator.ui.navigation.Destinations
 import com.dayandisli.calculator.ui.theme.AppColors
@@ -61,20 +63,17 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
         ) {
             // Hero
             Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(
+                Image(
+                    painter = painterResource(R.drawable.dayan_logo_header),
+                    contentDescription = "DAYAN",
                     modifier = Modifier
-                        .size(80.dp)
-                        .background(
-                            Brush.linearGradient(listOf(AppColors.Blue500, AppColors.Blue700)),
-                            RoundedCornerShape(Radius.xl),
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Filled.Settings, contentDescription = null, tint = Color.White, modifier = Modifier.size(40.dp))
-                }
+                        .width(250.dp)
+                        .height(78.dp),
+                    contentScale = ContentScale.Fit,
+                )
                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
                 Text(
-                    "DAYAN CALCULATOR",
+                    "DAYAN Dişli Hesap Makinesi",
                     color = Color.White,
                     fontSize = 32.sp,
                     fontWeight = FontWeight.Bold,
@@ -100,20 +99,19 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
 
             // Main cards
             Card(
+                onClick = { onNavigate(Destinations.MACHINES) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(Radius.lg),
                 colors = CardDefaults.cardColors(containerColor = AppColors.Slate800.copy(alpha = 0.5f)),
                 border = BorderStroke(1.dp, AppColors.Slate700),
             ) {
                 Column(modifier = Modifier.padding(Spacing.lg)) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(AppColors.Blue600.copy(alpha = 0.2f), RoundedCornerShape(Radius.md)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Filled.Settings, contentDescription = null, tint = AppColors.Blue400, modifier = Modifier.size(24.dp))
-                    }
+                    Image(
+                        painter = painterResource(R.drawable.dayan_machine_icon_v1),
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        contentScale = ContentScale.Fit,
+                    )
                     androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.md))
                     Text("Makineler", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 4.dp))
@@ -139,20 +137,19 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.md))
 
             Card(
+                onClick = { onNavigate(Destinations.WEIGHT) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(Radius.lg),
                 colors = CardDefaults.cardColors(containerColor = AppColors.Slate800.copy(alpha = 0.5f)),
                 border = BorderStroke(1.dp, AppColors.Slate700),
             ) {
                 Column(modifier = Modifier.padding(Spacing.lg)) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(AppColors.Emerald600.copy(alpha = 0.2f), RoundedCornerShape(Radius.md)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Filled.Scale, contentDescription = null, tint = AppColors.Emerald400, modifier = Modifier.size(24.dp))
-                    }
+                    Image(
+                        painter = painterResource(R.drawable.dayan_weight_icon_v1),
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        contentScale = ContentScale.Fit,
+                    )
                     androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.md))
                     Text("Ağırlık Hesaplama", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 4.dp))
@@ -200,6 +197,8 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
                 }
                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.sm))
             }
+
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 80.dp))
         }
     }
 }

@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dayandisli.calculator.domain.GearCombination
 import com.dayandisli.calculator.domain.toDmscs
+import com.dayandisli.calculator.domain.toDmscsSigned
 import com.dayandisli.calculator.domain.toFixedJs
 import com.dayandisli.calculator.ui.theme.AppColors
 import com.dayandisli.calculator.ui.theme.AppType
@@ -107,15 +108,17 @@ fun GearCombinationCard(
     modifier: Modifier = Modifier,
     realizedHelixAngleDeg: Double? = null,
     requestedHelixAngleDeg: Double? = null,
+    precomputedError: Double? = null,
+    isPerfectMatch: Boolean = false,
 ) {
     val isFourGear = combination.c != null && combination.d != null
-    val error = kotlin.math.abs(combination.ratio - targetRatio)
+    val error = precomputedError ?: kotlin.math.abs(combination.ratio - targetRatio)
 
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(Radius.lg),
         colors = CardDefaults.cardColors(containerColor = AppColors.Slate800),
-        border = BorderStroke(1.dp, AppColors.Slate700),
+        border = BorderStroke(1.dp, if (isPerfectMatch) AppColors.Emerald600 else AppColors.Slate700),
     ) {
         Column(modifier = Modifier.padding(Spacing.md)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -124,12 +127,17 @@ fun GearCombinationCard(
                     color = AppColors.Slate500,
                     style = AppType.monoLabel,
                 )
-                androidx.compose.foundation.layout.Box(
-                    modifier = Modifier
-                        .background(accentColor.copy(alpha = 0.16f), RoundedCornerShape(Radius.pill))
-                        .padding(horizontal = Spacing.sm, vertical = 3.dp),
-                ) {
-                    Text(if (isFourGear) "4 Çark" else "2 Çark", color = accentColor, style = AppType.chip)
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
+                    if (isPerfectMatch) {
+                        StatusChip(text = "Tam Eşleşme", accent = com.dayandisli.calculator.ui.theme.ModuleAccent.Weight)
+                    }
+                    androidx.compose.foundation.layout.Box(
+                        modifier = Modifier
+                            .background(accentColor.copy(alpha = 0.16f), RoundedCornerShape(Radius.pill))
+                            .padding(horizontal = Spacing.sm, vertical = 3.dp),
+                    ) {
+                        Text(if (isFourGear) "4 Çark" else "2 Çark", color = accentColor, style = AppType.chip)
+                    }
                 }
             }
 
@@ -143,7 +151,7 @@ fun GearCombinationCard(
             if (realizedHelixAngleDeg != null) {
                 MetricRow("Gerçekleşen Helis Açısı", realizedHelixAngleDeg.toDmscs())
                 if (requestedHelixAngleDeg != null) {
-                    MetricRow("Fark (β)", (realizedHelixAngleDeg - requestedHelixAngleDeg).toDmscs())
+                    MetricRow("Fark (β)", (realizedHelixAngleDeg - requestedHelixAngleDeg).toDmscsSigned())
                 }
             }
         }
@@ -210,6 +218,77 @@ fun GearCombinationsSection(
                     )
                 }
             }
+        }
+    }
+}
+
+/** Reishauer-specific counterpart of [GearCombinationsSection] for the enriched
+ * [com.dayandisli.calculator.domain.ReishauerHelisCombination] type: ratio, error, actual helix
+ * angle, deviation, and perfect-match state are all precomputed by the domain layer rather than
+ * recomputed per-card, and a genuinely exact match gets a "Tam Eşleşme" badge + emerald border. */
+@Composable
+fun ReishauerHelisCombinationsSection(
+    combinations: List<com.dayandisli.calculator.domain.ReishauerHelisCombination>,
+    title: String,
+    targetRatio: Double,
+    accentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(title, color = Color.White, style = AppType.cardTitle)
+            if (combinations.isNotEmpty()) {
+                Text("${combinations.size} sonuç", color = AppColors.Slate500, style = AppType.supporting)
+            }
+        }
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.sm))
+
+        if (combinations.isEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(Radius.lg),
+                colors = CardDefaults.cardColors(containerColor = AppColors.Slate800),
+                border = BorderStroke(1.dp, AppColors.Slate700),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(Spacing.xl),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Icon(Icons.Filled.SearchOff, contentDescription = null, tint = AppColors.Slate600, modifier = Modifier.padding(bottom = Spacing.xs))
+                    Text("Uygun kombinasyon bulunamadı.", color = AppColors.Slate400, style = AppType.body)
+                }
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                combinations.forEachIndexed { i, rc ->
+                    GearCombinationCard(
+                        index = i + 1,
+                        combination = rc.combination,
+                        targetRatio = targetRatio,
+                        accentColor = accentColor,
+                        realizedHelixAngleDeg = rc.actualHelixAngleDeg,
+                        requestedHelixAngleDeg = rc.actualHelixAngleDeg - rc.deviationDeg,
+                        precomputedError = rc.absoluteError,
+                        isPerfectMatch = rc.isPerfectMatch,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFF0F172A)
+@Composable
+fun GearCombinationFractionPreview() {
+    com.dayandisli.calculator.ui.theme.DayanCalculatorTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            GearCombinationCard(
+                index = 1,
+                combination = GearCombination(a = 24, b = 60, c = 30, d = 75, ratio = 0.4),
+                targetRatio = 0.4,
+                accentColor = AppColors.Blue400,
+                isPerfectMatch = true,
+            )
         }
     }
 }

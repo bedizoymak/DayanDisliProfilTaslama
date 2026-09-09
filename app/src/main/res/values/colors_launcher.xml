@@ -1,3 +1,7 @@
 <resources>
-    <color name="ic_launcher_background">#2563EB</color>
+    <!-- Dark navy/slate, matching the app theme (Theme.DayanCalculator's status/nav bar and
+         window background) rather than a separate saturated brand blue - dayan_app_icon.png
+         already carries its own blue styling, so this is only a neutral mask-edge fallback. -->
+    <color name="ic_launcher_background">#0F172A</color>
+    <color name="splash_background">#0F172A</color>
 </resources>

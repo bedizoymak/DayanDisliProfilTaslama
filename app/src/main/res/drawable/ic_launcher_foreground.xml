@@ -1,33 +1,11 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,34 A20,20 0 1 0 54,74 A20,20 0 1 0 54,34 Z M54,44 A10,10 0 1 1 54,64 A10,10 0 1 1 54,44 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M50,20 L58,20 L60,30 L48,30 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M50,78 L58,78 L60,88 L48,88 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M20,50 L20,58 L30,60 L30,48 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M78,50 L78,58 L88,60 L88,48 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M32,32 L38,26 L46,32 L40,40 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M62,68 L68,76 L76,70 L70,62 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M32,76 L26,70 L32,62 L40,68 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M68,32 L76,38 L70,46 L62,40 Z" />
-</vector>
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DAYAN brand mark, inset to fit the adaptive-icon safe zone (~64% of the 108dp canvas is
+     guaranteed visible across launcher masks) without stretching, cropping, or adding any extra
+     colored background behind the supplied artwork - dayan_app_icon.png already carries its own
+     rounded-square navy/blue styling. Also reused as the Android 12+ splash-screen icon. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/dayan_app_icon"
+    android:insetLeft="18%"
+    android:insetTop="18%"
+    android:insetRight="18%"
+    android:insetBottom="18%" />

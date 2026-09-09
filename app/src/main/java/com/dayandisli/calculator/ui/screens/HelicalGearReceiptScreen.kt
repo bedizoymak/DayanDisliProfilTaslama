@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dayandisli.calculator.domain.getMachineById
@@ -138,7 +139,7 @@ fun HelicalGearReceiptScreen(machineId: String, viewModel: HelicalGearViewModel 
                     requestedHelixAngleDeg = r.betaDeg,
                 )
             }
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 80.dp))
         }
     }
 }

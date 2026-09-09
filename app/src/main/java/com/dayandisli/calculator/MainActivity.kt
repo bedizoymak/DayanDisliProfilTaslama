@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -18,6 +19,7 @@ import com.dayandisli.calculator.ui.theme.DayanCalculatorTheme
  * fully offline, with native Compose navigation (no WebView, no ERP chrome). */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
@@ -29,10 +31,14 @@ class MainActivity : ComponentActivity() {
                 AppScaffold(
                     currentRoute = currentRoute,
                     onNavigate = { route ->
-                        navController.navigate(route) {
-                            popUpTo(Destinations.HOME) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
+                        // The shared primary navigation always returns to its root before opening
+                        // a destination. This also exits any nested Spur, Helical, or Reishauer
+                        // flow, so the sidebar behaves identically on every screen.
+                        navController.popBackStack(Destinations.HOME, inclusive = false)
+                        if (route != Destinations.HOME) {
+                            navController.navigate(route) {
+                                launchSingleTop = true
+                            }
                         }
                     },
                 ) { modifier ->

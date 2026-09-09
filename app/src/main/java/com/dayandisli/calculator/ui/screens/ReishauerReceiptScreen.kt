@@ -24,15 +24,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dayandisli.calculator.R
 import com.dayandisli.calculator.domain.getMachineById
-import com.dayandisli.calculator.domain.reishauerActualHelixAngle
 import com.dayandisli.calculator.domain.toFixedJs
 import com.dayandisli.calculator.pdf.PdfReceiptGenerator
 import com.dayandisli.calculator.ui.components.ContentContainer
 import com.dayandisli.calculator.ui.components.GearCombinationsSection
+import com.dayandisli.calculator.ui.components.ReishauerHelisCombinationsSection
 import com.dayandisli.calculator.ui.components.ReceiptActionBar
 import com.dayandisli.calculator.ui.components.ScreenHeader
 import com.dayandisli.calculator.ui.components.SectionCard
@@ -61,7 +62,9 @@ fun ReishauerReceiptScreen(machineId: String, viewModel: ReishauerViewModel = vi
         return
     }
 
-    LaunchedEffect(r.z, r.helixGearRatio) { viewModel.ensureCombinationsFor(r.z, r.helixGearRatio) }
+    LaunchedEffect(r.z, r.mn, r.betaDeg, r.helixGearRatioFullPrecision) {
+        viewModel.ensureCombinationsFor(r.z, r.mn, r.betaDeg, r.helixGearRatioFullPrecision)
+    }
 
     val fileName = "reishauer-recete-z${r.z}"
     val saveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
@@ -152,16 +155,14 @@ fun ReishauerReceiptScreen(machineId: String, viewModel: ReishauerViewModel = vi
                     accentColor = AppColors.Blue400,
                 )
                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.md))
-                GearCombinationsSection(
+                ReishauerHelisCombinationsSection(
                     combinations = helisCombinations!!,
                     title = "Helis Çark Kombinasyonları",
-                    targetRatio = r.helixGearRatio,
+                    targetRatio = r.helixGearRatioFullPrecision,
                     accentColor = AppColors.Emerald400,
-                    realizedHelixAngle = { combo -> reishauerActualHelixAngle(r.mn, combo.ratio) },
-                    requestedHelixAngleDeg = r.betaDeg,
                 )
             }
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 80.dp))
         }
     }
 }

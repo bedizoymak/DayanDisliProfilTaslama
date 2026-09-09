@@ -35,6 +35,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dayandisli.calculator.R
 import com.dayandisli.calculator.domain.HelixDirection
 import com.dayandisli.calculator.domain.getMachineById
+import com.dayandisli.calculator.domain.normalizeReishauerAngleInput
+import com.dayandisli.calculator.domain.normalizeReishauerAngleSeparator
 import com.dayandisli.calculator.domain.toFixedJs
 import com.dayandisli.calculator.ui.components.ContentContainer
 import com.dayandisli.calculator.ui.components.EngineeringDropdown
@@ -85,7 +87,7 @@ fun ReishauerFormScreen(machineId: String, viewModel: ReishauerViewModel = viewM
             ScreenHeader(
                 eyebrow = machine?.name ?: "Makine",
                 title = "Reishauer Helis Dişli Taşlama",
-                subtitle = "D,M,S,CS formatında açı girişi ile profil taşlama hesaplaması",
+                subtitle = "Hassas profil taşlama hesaplaması",
             )
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
 
@@ -98,7 +100,10 @@ fun ReishauerFormScreen(machineId: String, viewModel: ReishauerViewModel = viewM
                     viewModel::setAlphaRaw,
                     unit = "D,M,S,CS",
                     keyboardType = KeyboardType.Text,
-                    supportingText = "örn. 20,30,45,25",
+                    normalizeInput = false,
+                    formatOnFocusLost = ::normalizeReishauerAngleInput,
+                    transformWhileTyping = ::normalizeReishauerAngleSeparator,
+                    clearValueOnFirstFocus = "20°00′00″00",
                 )
                 EngineeringTextField(
                     "Helis Açısı (β)",
@@ -106,31 +111,24 @@ fun ReishauerFormScreen(machineId: String, viewModel: ReishauerViewModel = viewM
                     viewModel::setBetaRaw,
                     unit = "D,M,S,CS",
                     keyboardType = KeyboardType.Text,
-                    supportingText = "örn. 15,20",
+                    normalizeInput = false,
+                    formatOnFocusLost = ::normalizeReishauerAngleInput,
+                    transformWhileTyping = ::normalizeReishauerAngleSeparator,
+                    clearValueOnFirstFocus = "15°00′00″00",
                 )
 
-                EngineeringDropdown(
-                    label = "Helis Yönü",
-                    options = HelixDirection.entries,
+                HelixDirectionSelector(
                     selected = helixDirection,
-                    optionLabel = { it.label },
                     onSelected = viewModel::setHelixDirection,
+                    accent = ModuleAccent.Helical,
                 )
 
-                if (autoDiameter != null) {
-                    Text(
-                        "Otomatik Hesaplanan Çap: ${autoDiameter!!.toFixedJs(4)} mm",
-                        color = AppColors.Slate300,
-                        style = AppType.body,
-                        modifier = Modifier.padding(bottom = Spacing.xs),
-                    )
-                }
                 EngineeringTextField(
-                    "Çap (ø) — manuel geçersiz kılma",
+                    "Çap (ø)",
                     diameterOverride,
                     viewModel::setDiameterOverride,
                     unit = "mm",
-                    supportingText = "boş bırakılırsa otomatik çap kullanılır",
+                    placeholder = autoDiameter?.toFixedJs(4),
                 )
 
                 if (errors.isNotEmpty()) {
@@ -145,11 +143,11 @@ fun ReishauerFormScreen(machineId: String, viewModel: ReishauerViewModel = viewM
                 }
             }
 
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
+            if (result != null) {
+                val r = result!!
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
 
-            SectionCard(title = "Hesaplama Sonuçları", modifier = Modifier.fillMaxWidth()) {
-                if (result != null) {
-                    val r = result!!
+                SectionCard(title = "Hesaplama Sonuçları", modifier = Modifier.fillMaxWidth()) {
                     val cells: List<Pair<String, String>> = listOf(
                         "Modül (mn)" to r.mn.toFixedJs(4),
                         "Diş Sayısı (Z)" to r.z.toString(),
@@ -169,12 +167,8 @@ fun ReishauerFormScreen(machineId: String, viewModel: ReishauerViewModel = viewM
                         }
                         androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.sm))
                     }
-                } else {
-                    Text("Geçerli parametreler girin", color = AppColors.Slate400, style = AppType.body)
                 }
-            }
 
-            if (result != null) {
                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
                 Button(
                     onClick = onViewReceipt,
@@ -187,7 +181,23 @@ fun ReishauerFormScreen(machineId: String, viewModel: ReishauerViewModel = viewM
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                 }
             }
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
+
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 80.dp))
+        }
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFF0F172A)
+@Composable
+fun ReishauerAngleInputStatePreview() {
+    com.dayandisli.calculator.ui.theme.DayanCalculatorTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            EngineeringTextField(
+                label = "Helis Açısı (β)",
+                value = "15°30′45″20",
+                onValueChange = {},
+                unit = "D,M,S,CS",
+            )
         }
     }
 }

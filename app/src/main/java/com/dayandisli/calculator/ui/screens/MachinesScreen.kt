@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -65,6 +66,8 @@ private fun machinePhotoRes(machineId: String): Int? = when (machineId) {
     else -> null
 }
 
+private val supportedMachineIds = setOf("kucuk-azdirma", "reishauer-taslama")
+
 /** Reproduces pages/MachineSelection.tsx: responsive grid of machine cards, each showing the real
  * machine photo (with a dark gradient scrim for text legibility) or an icon badge fallback, name,
  * description, and a ghost "Seç" button with a trailing chevron. */
@@ -83,13 +86,17 @@ fun MachinesScreen(onMachineSelected: (String) -> Unit) {
 
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 280.dp),
-            contentPadding = PaddingValues(horizontal = Dimens.screenPaddingHorizontal, vertical = Spacing.xs),
+            contentPadding = PaddingValues(start = Dimens.screenPaddingHorizontal, top = Spacing.xs, end = Dimens.screenPaddingHorizontal, bottom = 80.dp),
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
             modifier = Modifier.fillMaxWidth(),
         ) {
             items(MACHINES, key = { it.id }) { machine ->
-                MachineCard(machine = machine, onClick = { onMachineSelected(machine.id) })
+                MachineCard(
+                    machine = machine,
+                    enabled = machine.id in supportedMachineIds,
+                    onClick = { onMachineSelected(machine.id) },
+                )
             }
         }
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
@@ -97,13 +104,15 @@ fun MachinesScreen(onMachineSelected: (String) -> Unit) {
 }
 
 @Composable
-private fun MachineCard(machine: Machine, onClick: () -> Unit) {
+private fun MachineCard(machine: Machine, enabled: Boolean, onClick: () -> Unit) {
     val photoRes = machinePhotoRes(machine.id)
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.5f),
         shape = RoundedCornerShape(Radius.lg),
         colors = CardDefaults.cardColors(containerColor = AppColors.Slate800.copy(alpha = 0.5f)),
-        border = BorderStroke(1.dp, AppColors.Slate700),
+        border = BorderStroke(1.dp, if (enabled) AppColors.Slate700 else AppColors.Slate800),
     ) {
         Column {
             if (photoRes != null) {
@@ -143,25 +152,59 @@ private fun MachineCard(machine: Machine, onClick: () -> Unit) {
             }
 
             Column(modifier = Modifier.padding(Spacing.lg)) {
-                Text(machine.name, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(machine.name, color = if (enabled) Color.White else AppColors.Slate400, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 2.dp))
-                Text(machine.description, color = AppColors.Slate400, style = AppType.body)
+                Text(machine.description, color = AppColors.Slate500, style = AppType.body)
                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.md))
                 TextButton(
                     onClick = onClick,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.textButtonColors(contentColor = AppColors.Slate300),
+                    enabled = enabled,
+                    modifier = Modifier.fillMaxWidth().height(Dimens.minTouchTarget),
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = AppColors.Slate300,
+                        disabledContentColor = AppColors.Slate600,
+                    ),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Seç")
-                        Icon(Icons.Filled.ChevronRight, contentDescription = null, modifier = Modifier.height(18.dp))
+                        Text(if (enabled) "Seç" else "Henüz Hazır Değil")
+                        if (enabled) {
+                            Icon(Icons.Filled.ChevronRight, contentDescription = null, modifier = Modifier.height(18.dp))
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFF0F172A)
+@Composable
+fun MachineCardPreviewEnabled() {
+    com.dayandisli.calculator.ui.theme.DayanCalculatorTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            MachineCard(
+                machine = MACHINES[0],
+                enabled = true,
+                onClick = {},
+            )
+        }
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFF0F172A)
+@Composable
+fun MachineCardPreviewDisabled() {
+    com.dayandisli.calculator.ui.theme.DayanCalculatorTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            MachineCard(
+                machine = MACHINES[2],
+                enabled = false,
+                onClick = {},
+            )
         }
     }
 }

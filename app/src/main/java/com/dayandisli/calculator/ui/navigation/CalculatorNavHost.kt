@@ -36,11 +36,7 @@ fun CalculatorNavHost(navController: NavHostController) {
         composable(Destinations.MACHINES) {
             MachinesScreen(
                 onMachineSelected = { machineId ->
-                    if (machineId == Destinations.REISHAUER_MACHINE_ID) {
-                        navController.navigate(Destinations.reishauerForm(machineId))
-                    } else {
-                        navController.navigate(Destinations.machineDetail(machineId))
-                    }
+                    navController.navigate(Destinations.machineDetail(machineId))
                 },
             )
         }
@@ -50,7 +46,14 @@ fun CalculatorNavHost(navController: NavHostController) {
             MachineDetailScreen(
                 machineId = machineId,
                 onSpur = { navController.navigate(Destinations.spurForm(machineId)) },
-                onHelical = { navController.navigate(Destinations.helicalForm(machineId)) },
+                onHelical = {
+                    if (machineId == Destinations.REISHAUER_MACHINE_ID) {
+                        navController.navigate(Destinations.reishauerForm(machineId))
+                    } else {
+                        navController.navigate(Destinations.helicalForm(machineId))
+                    }
+                },
+                spurAvailable = machineId != Destinations.REISHAUER_MACHINE_ID,
             )
         }
 

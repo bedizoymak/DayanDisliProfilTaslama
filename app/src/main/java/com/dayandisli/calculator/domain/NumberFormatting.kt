@@ -40,6 +40,44 @@ fun parseLocaleDouble(raw: String): Double? {
     return normalized.toDoubleOrNull()
 }
 
+/**
+ * Normalizes the forgiving decimal notation used by shop-floor data entry. A decimal separator
+ * may be a comma or a dot and whitespace around it is ignored. When two numeric groups are
+ * separated only by whitespace (for example "2 5"), that space is treated as the intended
+ * decimal separator so the field immediately becomes "2.5" instead of reporting an error.
+ */
+fun normalizeDecimalInput(raw: String): String {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return ""
+
+    val groups = trimmed.split(Regex("\\s+")).filter { it.isNotEmpty() }
+    if (!trimmed.contains('.') && !trimmed.contains(',') && groups.all { it.all(Char::isDigit) }) {
+        return when {
+            groups.size >= 2 -> "${groups.first()}.${groups.drop(1).joinToString("")}" 
+            raw.lastOrNull()?.isWhitespace() == true -> "${groups.first()}."
+            else -> groups.first()
+        }
+    }
+
+    // Convert comma to dot, remove whitespace, and collapse accidental repeated separators:
+    // 2..6, 2,,6 and 2 . . 6 all become 2.6.
+    return trimmed
+        .replace(Regex("\\s+"), "")
+        .replace(',', '.')
+        .replace(Regex("\\.+"), ".")
+}
+
+/** Normalizes an integer field such as tooth count or quantity without inventing a decimal. */
+fun normalizeIntegerInput(raw: String): String {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return ""
+    return if (trimmed.all { it.isDigit() || it.isWhitespace() || it == '.' || it == ',' }) {
+        trimmed.filter(Char::isDigit)
+    } else {
+        trimmed
+    }
+}
+
 fun parseLocaleInt(raw: String): Int? {
     val trimmed = raw.trim()
     if (trimmed.isEmpty()) return null
@@ -47,21 +85,19 @@ fun parseLocaleInt(raw: String): Int? {
 }
 
 /**
- * Formats a signed decimal-degree value as D° M′ S″ CS (degree, minute, second, centisecond),
- * e.g. `19° 59′ 59″ 95` or, for a small negative difference, `-0° 00′ 00″ 15`. Minute, second and
- * centisecond are zero-padded to two digits. Rounds to the nearest centisecond with correct carry
- * (59.999... seconds carries into minutes, 60 minutes carries into degrees).
+ * Splits an unsigned decimal-degree magnitude into its D/M/S/CS components (degree, minute,
+ * second, centisecond), rounding to the nearest centisecond with correct carry (59.999... seconds
+ * carries into minutes, 60 minutes carries into degrees, etc.) so no component ever lands on an
+ * out-of-range value like "60" or "100". Rounding happens entirely in integer centiseconds first
+ * so the split itself can't reintroduce floating-point error at a carry boundary.
  */
-fun Double.toDmscs(): String {
-    if (this.isNaN() || this.isInfinite()) return "-"
-    val negative = this < 0
-    val absDeg = kotlin.math.abs(this)
+private data class Dmscs(val degrees: Long, val minutes: Long, val seconds: Long, val centiseconds: Long) {
+    override fun toString(): String =
+        "$degrees° ${minutes.toString().padStart(2, '0')}′ ${seconds.toString().padStart(2, '0')}″ ${centiseconds.toString().padStart(2, '0')}"
+}
 
-    // Round to the nearest centisecond of arc first, entirely in integer centiseconds, so the
-    // subsequent degree/minute/second/centisecond split can't reintroduce floating-point error
-    // at the boundary (e.g. 59.999999 seconds silently failing to carry into minutes).
-    val totalCentiseconds = BigDecimal(absDeg * 360000.0).setScale(0, RoundingMode.HALF_UP).toLong()
-
+private fun dmscsOf(magnitudeDegrees: Double): Dmscs {
+    val totalCentiseconds = BigDecimal(kotlin.math.abs(magnitudeDegrees) * 360000.0).setScale(0, RoundingMode.HALF_UP).toLong()
     var remaining = totalCentiseconds
     val centiseconds = remaining % 100
     remaining /= 100
@@ -69,7 +105,28 @@ fun Double.toDmscs(): String {
     remaining /= 60
     val minutes = remaining % 60
     val degrees = remaining / 60
+    return Dmscs(degrees, minutes, seconds, centiseconds)
+}
 
-    val sign = if (negative) "-" else ""
-    return "$sign$degrees° ${minutes.toString().padStart(2, '0')}′ ${seconds.toString().padStart(2, '0')}″ ${centiseconds.toString().padStart(2, '0')}"
+/**
+ * Formats a decimal-degree value as an unsigned D° M′ S″ CS magnitude (degree, minute, second,
+ * centisecond), e.g. `19° 59′ 59″ 95`. Minute, second and centisecond are zero-padded to two
+ * digits. Any sign on the input is ignored — use [toDmscsSigned] where a +/- sign must be shown
+ * (e.g. a beta difference), and this formatter for an angle that is always a magnitude (e.g. a
+ * realized helix angle).
+ */
+fun Double.toDmscs(): String {
+    if (this.isNaN() || this.isInfinite()) return "-"
+    return dmscsOf(this).toString()
+}
+
+/**
+ * Formats a decimal-degree value as a D° M′ S″ CS magnitude with a mandatory leading sign, e.g.
+ * `+0° 00′ 00″ 15` or `-0° 00′ 00″ 15`. Intended for signed differences (e.g. Fark (β)) where the
+ * direction of the deviation matters, unlike [toDmscs].
+ */
+fun Double.toDmscsSigned(): String {
+    if (this.isNaN() || this.isInfinite()) return "-"
+    val sign = if (this < 0) "-" else "+"
+    return "$sign${dmscsOf(this)}"
 }
