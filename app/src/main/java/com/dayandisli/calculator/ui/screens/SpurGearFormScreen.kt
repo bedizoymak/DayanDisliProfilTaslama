@@ -1,6 +1,7 @@
 package com.dayandisli.calculator.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -8,6 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -25,11 +28,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dayandisli.calculator.domain.getMachineById
+import com.dayandisli.calculator.R
+import com.dayandisli.calculator.domain.normalizeReishauerAngleInput
+import com.dayandisli.calculator.domain.normalizeReishauerAngleSeparator
+import com.dayandisli.calculator.domain.toFixedJs
+import com.dayandisli.calculator.domain.toDmscs
 import com.dayandisli.calculator.ui.components.ContentContainer
 import com.dayandisli.calculator.ui.components.EngineeringTextField
 import com.dayandisli.calculator.ui.components.ResultCard
@@ -54,12 +67,35 @@ fun SpurGearFormScreen(machineId: String, viewModel: SpurGearViewModel = viewMod
     val diameterOverride by viewModel.diameterOverride.collectAsStateWithLifecycle()
     val errors by viewModel.errors.collectAsStateWithLifecycle()
     val result by viewModel.result.collectAsStateWithLifecycle()
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
-    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+    Column(
+        modifier = Modifier
+            .verticalScroll(rememberScrollState())
+            .clickable(
+                interactionSource = MutableInteractionSource(),
+                indication = null,
+            ) {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+            },
+    ) {
         ContentContainer(
             maxWidth = Dimens.formMaxWidth,
             modifier = Modifier.padding(horizontal = Dimens.screenPaddingHorizontal, vertical = Dimens.screenPaddingVertical).fillMaxWidth(),
         ) {
+            machinePhotoRes(machineId)?.let { photoRes ->
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(Radius.lg)),
+                ) {
+                    Image(
+                        painter = painterResource(photoRes), contentDescription = machine?.name,
+                        contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(150.dp),
+                    )
+                }
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.md))
+            }
             ScreenHeader(
                 eyebrow = machine?.name ?: "Makine",
                 title = "Düz Dişli Hesaplama",
@@ -68,9 +104,19 @@ fun SpurGearFormScreen(machineId: String, viewModel: SpurGearViewModel = viewMod
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
 
             SectionCard(title = "Dişli Parametreleri", icon = Icons.Filled.Settings, accent = ModuleAccent.Spur, modifier = Modifier.fillMaxWidth()) {
-                EngineeringTextField("Modül (mn)", mn, viewModel::setMn, unit = "mm")
+                EngineeringTextField("Modül (mn)", mn, viewModel::setMn, unit = "mm", clearValueOnFirstFocus = "1.00")
                 EngineeringTextField("Diş Sayısı (Z)", z, viewModel::setZ, unit = "diş", keyboardType = KeyboardType.Number)
-                EngineeringTextField("Kavrama Açısı (α)", alphaDeg, viewModel::setAlphaDeg, unit = "°")
+                EngineeringTextField(
+                    label = "Kavrama Açısı (α)",
+                    value = alphaDeg,
+                    onValueChange = viewModel::setAlphaDeg,
+                    unit = "D,M,S,CS",
+                    keyboardType = KeyboardType.Decimal,
+                    normalizeInput = false,
+                    formatOnFocusLost = ::normalizeReishauerAngleInput,
+                    transformWhileTyping = ::normalizeReishauerAngleSeparator,
+                    clearValueOnFirstFocus = "20°00′00″00",
+                )
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Çap (ø)", style = AppType.fieldLabel, color = AppColors.Slate300)
@@ -83,6 +129,12 @@ fun SpurGearFormScreen(machineId: String, viewModel: SpurGearViewModel = viewMod
                         onValueChange = viewModel::setDiameter,
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                            onDone = {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                            },
+                        ),
                         colors = engineeringFieldColors(),
                         singleLine = true,
                         suffix = { Text("mm", style = AppType.supporting, color = AppColors.Slate400) },
@@ -112,14 +164,14 @@ fun SpurGearFormScreen(machineId: String, viewModel: SpurGearViewModel = viewMod
 
                 SectionCard(title = "Hesaplama Sonuçları", modifier = Modifier.fillMaxWidth()) {
                     val cells = listOf(
-                        "Modül (mn)" to (r.mn to null),
-                        "Diş Sayısı (Z)" to (r.z.toDouble() to null),
-                        "Kavrama Açısı (α)" to (r.alphaDeg to "°"),
-                        "Çap (ø)" to (r.diameter to "mm"),
-                        "Wk (k=${r.kFloor})" to (r.wkFloor to "mm"),
-                        "Wk (k=${r.kCeil})" to (r.wkCeil to "mm"),
-                        "Taksimat Oranı" to (r.taksimatRatio to null),
-                        "k değeri" to (r.k to null),
+                        "Modül (mn)" to (r.mn.toFixedJs(2) to null),
+                        "Diş Sayısı (Z)" to (r.z.toString() to null),
+                        "Kavrama Açısı (α)" to (r.alphaDeg.toDmscs().replace(" ", "") to null),
+                        "Çap (ø)" to (r.diameter.toFixedJs(2) to "mm"),
+                        "Wk (k=${r.kFloor})" to (r.wkFloor.toFixedJs(4) to "mm"),
+                        "Wk (k=${r.kCeil})" to (r.wkCeil.toFixedJs(4) to "mm"),
+                        "Wk (k=${r.kThird})" to (r.wkThird.toFixedJs(4) to "mm"),
+                        "Taksimat Oranı" to (r.taksimatRatio.toFixedJs(9) to null),
                     )
                     cells.chunked(2).forEach { rowCells ->
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -138,7 +190,7 @@ fun SpurGearFormScreen(machineId: String, viewModel: SpurGearViewModel = viewMod
                     shape = RoundedCornerShape(Radius.md),
                     colors = ButtonDefaults.buttonColors(containerColor = AppColors.Blue600),
                 ) {
-                    Text("Reçeteyi Görüntüle (PDF)", style = MaterialTheme.typography.titleSmall)
+                    Text("Reçeteyi Görüntüle", style = MaterialTheme.typography.titleSmall)
                     androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(start = Spacing.xs))
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                 }

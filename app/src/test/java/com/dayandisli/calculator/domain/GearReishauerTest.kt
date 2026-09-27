@@ -248,6 +248,30 @@ class GearReishauerTest {
     @Test
     fun validate_moduleOutOfRange_returnsError() {
         assertTrue(validateReishauerInputs(0.1, 20, 50.0, 20.0, 15.0).isNotEmpty())
+        assertTrue(validateReishauerInputs(0.5, 20, 50.0, 20.0, 15.0).isNotEmpty())
+        assertTrue(validateReishauerInputs(5.1, 20, 50.0, 20.0, 15.0).isNotEmpty())
+    }
+
+    @Test
+    fun compute_moduleRangeBoundaries_produceFiniteResultsAndCombinations() {
+        for (mn in listOf(0.6, 5.0)) {
+            val z = 30
+            val beta = 15.0
+            val nominal = computeReishauerNominalDiameter(mn, z, beta)
+            val result = computeReishauerParams(mn, z, 20.0, "20", beta, "15", HelixDirection.SAG, nominal)
+            assertTrue(result.wk1.isFinite() && result.wk1 > 0)
+            assertTrue(result.wk3 > result.wk2 && result.wk2 > result.wk1)
+            assertTrue(result.helixGearRatioFullPrecision.isFinite() && result.helixGearRatioFullPrecision > 0)
+            val combos = findReishauerHelisCombinations(mn, beta, result.helixGearRatioFullPrecision)
+            assertTrue("mn=$mn için kombinasyon bulunamadı", combos.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun validate_moduleRangeBoundaries_areAccepted() {
+        assertTrue(validateReishauerInputs(0.6, 20, 50.0, 20.0, 15.0).isEmpty())
+        assertTrue(validateReishauerInputs(4.0, 20, 50.0, 20.0, 15.0).isEmpty())
+        assertTrue(validateReishauerInputs(5.0, 20, 50.0, 20.0, 15.0).isEmpty())
     }
 
     @Test

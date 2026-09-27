@@ -1,6 +1,8 @@
 package com.dayandisli.calculator.ui.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,11 +24,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -55,19 +60,34 @@ import com.dayandisli.calculator.ui.theme.Spacing
  * MachineDetailScreen flow), using the D,M,S,CS angle format. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReishauerFormScreen(machineId: String, viewModel: ReishauerViewModel = viewModel(), onViewReceipt: () -> Unit) {
+fun ReishauerFormScreen(machineId: String, viewModel: ReishauerViewModel = viewModel(), onViewReceipt: () -> Unit, isSpur: Boolean = false) {
     val machine = getMachineById(machineId)
     val mn by viewModel.mn.collectAsStateWithLifecycle()
     val z by viewModel.z.collectAsStateWithLifecycle()
     val alphaRaw by viewModel.alphaRaw.collectAsStateWithLifecycle()
     val betaRaw by viewModel.betaRaw.collectAsStateWithLifecycle()
     val diameterOverride by viewModel.diameterOverride.collectAsStateWithLifecycle()
+    val displayDiameter by viewModel.displayDiameter.collectAsStateWithLifecycle()
+    val isDiameterManual by viewModel.isDiameterManual.collectAsStateWithLifecycle()
     val autoDiameter by viewModel.autoDiameter.collectAsStateWithLifecycle()
     val helixDirection by viewModel.helixDirection.collectAsStateWithLifecycle()
     val errors by viewModel.errors.collectAsStateWithLifecycle()
     val result by viewModel.result.collectAsStateWithLifecycle()
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    LaunchedEffect(isSpur, machineId) {
+        viewModel.configureMachine(machineId)
+        if (isSpur) viewModel.useSpurMode()
+    }
 
-    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()).clickable(
+            interactionSource = MutableInteractionSource(), indication = null,
+        ) {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+        },
+    ) {
         ContentContainer(
             maxWidth = Dimens.formMaxWidth,
             modifier = Modifier.padding(horizontal = Dimens.screenPaddingHorizontal, vertical = Dimens.screenPaddingVertical).fillMaxWidth(),
@@ -76,8 +96,8 @@ fun ReishauerFormScreen(machineId: String, viewModel: ReishauerViewModel = viewM
                 modifier = Modifier.fillMaxWidth().aspectRatio(21f / 9f).clip(RoundedCornerShape(Radius.lg)),
             ) {
                 Image(
-                    painter = painterResource(R.drawable.machine_reishauer_taslama),
-                    contentDescription = "REISHAUER Taşlama makinesi",
+                    painter = painterResource(machinePhotoRes(machineId) ?: R.drawable.machine_reishauer_taslama),
+                    contentDescription = machine?.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxWidth().aspectRatio(21f / 9f),
                 )
@@ -86,38 +106,38 @@ fun ReishauerFormScreen(machineId: String, viewModel: ReishauerViewModel = viewM
 
             ScreenHeader(
                 eyebrow = machine?.name ?: "Makine",
-                title = "Reishauer Helis Dişli Taşlama",
+                title = "${machine?.name ?: "Makine"} ${if (isSpur) "Düz Dişli" else "Helis Dişli"} Hesaplama",
                 subtitle = "Hassas profil taşlama hesaplaması",
             )
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
 
             SectionCard(title = "Dişli Parametreleri", icon = Icons.Filled.PrecisionManufacturing, accent = ModuleAccent.Helical, modifier = Modifier.fillMaxWidth()) {
-                EngineeringTextField("Modül (mn)", mn, viewModel::setMn, unit = "mm")
+                EngineeringTextField("Modül (mn)", mn, viewModel::setMn, unit = "mm", clearValueOnFirstFocus = "2.50")
                 EngineeringTextField("Diş Sayısı (Z)", z, viewModel::setZ, unit = "diş", keyboardType = KeyboardType.Number)
                 EngineeringTextField(
                     "Kavrama Açısı (α)",
                     alphaRaw,
                     viewModel::setAlphaRaw,
                     unit = "D,M,S,CS",
-                    keyboardType = KeyboardType.Text,
+                    keyboardType = KeyboardType.Decimal,
                     normalizeInput = false,
                     formatOnFocusLost = ::normalizeReishauerAngleInput,
                     transformWhileTyping = ::normalizeReishauerAngleSeparator,
                     clearValueOnFirstFocus = "20°00′00″00",
                 )
-                EngineeringTextField(
+                if (!isSpur) EngineeringTextField(
                     "Helis Açısı (β)",
                     betaRaw,
                     viewModel::setBetaRaw,
                     unit = "D,M,S,CS",
-                    keyboardType = KeyboardType.Text,
+                    keyboardType = KeyboardType.Decimal,
                     normalizeInput = false,
                     formatOnFocusLost = ::normalizeReishauerAngleInput,
                     transformWhileTyping = ::normalizeReishauerAngleSeparator,
                     clearValueOnFirstFocus = "15°00′00″00",
                 )
 
-                HelixDirectionSelector(
+                if (!isSpur) HelixDirectionSelector(
                     selected = helixDirection,
                     onSelected = viewModel::setHelixDirection,
                     accent = ModuleAccent.Helical,
@@ -125,11 +145,16 @@ fun ReishauerFormScreen(machineId: String, viewModel: ReishauerViewModel = viewM
 
                 EngineeringTextField(
                     "Çap (ø)",
-                    diameterOverride,
+                    displayDiameter,
                     viewModel::setDiameterOverride,
                     unit = "mm",
-                    placeholder = autoDiameter?.toFixedJs(4),
+                    supportingText = if (!isDiameterManual) "(otomatik hesaplanan)" else null,
                 )
+                if (isDiameterManual) {
+                    androidx.compose.material3.TextButton(onClick = viewModel::resetToAutoDiameter) {
+                        Text("Otomatik hesaplamaya dön", color = AppColors.Blue400, style = AppType.supporting)
+                    }
+                }
 
                 if (errors.isNotEmpty()) {
                     Column {
@@ -149,15 +174,15 @@ fun ReishauerFormScreen(machineId: String, viewModel: ReishauerViewModel = viewM
 
                 SectionCard(title = "Hesaplama Sonuçları", modifier = Modifier.fillMaxWidth()) {
                     val cells: List<Pair<String, String>> = listOf(
-                        "Modül (mn)" to r.mn.toFixedJs(4),
+                        "Modül (mn)" to r.mn.toFixedJs(2),
                         "Diş Sayısı (Z)" to r.z.toString(),
                         "Çap (ø)" to "${r.diameter.toFixedJs(2)} mm",
                         "Nominal Çap" to "${r.nominalDiameter.toFixedJs(2)} mm",
                         "Wk (k=${r.k1})" to "${r.wk1.toFixedJs(4)} mm",
                         "Wk (k=${r.k2})" to "${r.wk2.toFixedJs(4)} mm",
                         "Wk (k=${r.k3})" to "${r.wk3.toFixedJs(4)} mm",
-                        "Taksimat Oranı" to r.taksimatRatio.toFixedJs(6),
-                        "Helis Çark Oranı" to r.helixGearRatio.toFixedJs(9),
+                        "Taksimat Oranı" to r.taksimatRatio.toFixedJs(9),
+                        *if (!isSpur) arrayOf("Helis Çark Oranı" to r.helixGearRatio.toFixedJs(9)) else emptyArray(),
                     )
                     cells.chunked(2).forEach { rowCells ->
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -176,7 +201,7 @@ fun ReishauerFormScreen(machineId: String, viewModel: ReishauerViewModel = viewM
                     shape = RoundedCornerShape(Radius.md),
                     colors = ButtonDefaults.buttonColors(containerColor = AppColors.Purple600),
                 ) {
-                    Text("Reçeteyi Görüntüle (PDF)", style = MaterialTheme.typography.titleSmall)
+                    Text("Reçeteyi Görüntüle", style = MaterialTheme.typography.titleSmall)
                     androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(start = Spacing.xs))
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                 }

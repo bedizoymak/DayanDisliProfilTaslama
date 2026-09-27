@@ -10,6 +10,11 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.tan
 
+data class MachineCalculationProfile(val taksimatDivisor: Double, val helixConstant: Double)
+val REISHAUER_PROFILE = MachineCalculationProfile(24.0, 11.6909)
+val GENERAL_HOBBING_PROFILE = MachineCalculationProfile(15.0, 6.0)
+val LATHE_PROFILE = MachineCalculationProfile(24.0, 8.25059)
+
 /**
  * Reishauer profile-grinding calculator. Ported from CEHA-AndroidApp's ReishauerCalculator.kt /
  * ReishauerAngleParser / ReishauerGearCombinations, adapted to this app's Double-based domain
@@ -145,7 +150,7 @@ fun validateReishauerInputs(
     betaDeg: Double?,
 ): List<String> {
     val errors = mutableListOf<String>()
-    if (mn == null || mn < 0.3 || mn > 3.0) errors.add("Modül 0.3 ile 3.0 arasında olmalıdır")
+    if (mn == null || mn < 0.6 || mn > 5.0) errors.add("Modül 0.6 ile 5.0 arasında olmalıdır")
     if (z == null || z < 6) errors.add("Diş sayısı en az 6 olmalıdır")
     if (manualDiameter == null || manualDiameter < 8.0 || manualDiameter > 250.0) {
         errors.add("Çap (ø) 8 ile 250 mm arasında olmalıdır")
@@ -171,6 +176,7 @@ fun computeReishauerParams(
     betaRaw: String,
     helixDirection: HelixDirection,
     manualDiameter: Double,
+    profile: MachineCalculationProfile = REISHAUER_PROFILE,
 ): ReishauerResult {
     val alphaRad = alphaDeg * PI / 180.0
     val betaRad = betaDeg * PI / 180.0
@@ -182,7 +188,7 @@ fun computeReishauerParams(
     val xRad = atan(tan(alphaRad) / cos(betaRad))
     val xDeg = xRad * 180.0 / PI
     val y = xDeg * PI / 180.0
-    val ew = abs(y - tan(xRad))
+    val ew = y - tan(xRad)
 
     // Three consecutive k values.
     val kRaw = (alphaDeg * z) / 180.0 + 0.5
@@ -200,12 +206,12 @@ fun computeReishauerParams(
     val wk3 = roundToFixed(wk(k3) + correction, 4)
 
     val sinBeta = sin(betaRad)
-    val helixGearRatioFullPrecision = if (sinBeta == 0.0) 0.0 else mn / (11.6909 * sinBeta)
+    val helixGearRatioFullPrecision = if (sinBeta == 0.0) 0.0 else mn / (profile.helixConstant * sinBeta)
     val helixGearRatio = if (sinBeta == 0.0) 0.0 else floorToFixed(helixGearRatioFullPrecision, 9)
 
     // Taksimat Oranı: 24 / Z (Reishauer-specific target-ratio convention; distinct from Küçük
     // Azdırma / Helical Hobbing's 16 / Z used in GearHelical.kt, which must not change).
-    val taksimatRatio = if (z != 0) 24.0 / z else 0.0
+    val taksimatRatio = if (z != 0) profile.taksimatDivisor / z else 0.0
 
     return ReishauerResult(
         mn = mn,
@@ -309,8 +315,8 @@ private fun findReishauerCombinations(targetRatio: Double, tolerance: Double, ma
     return (twoGear + fourGear).take(maxResults)
 }
 
-fun findReishauerTaksimatCombinations(z: Int): List<GearCombination> {
-    val targetRatio = if (z != 0) 24.0 / z else 0.0
+fun findReishauerTaksimatCombinations(z: Int, taksimatDivisor: Double = REISHAUER_PROFILE.taksimatDivisor): List<GearCombination> {
+    val targetRatio = if (z != 0) taksimatDivisor / z else 0.0
     return findReishauerCombinations(targetRatio, tolerance = 1e-9)
 }
 
@@ -403,9 +409,9 @@ internal fun rankReishauerCombinations(
 /** The actual helix angle (degrees) a given combination ratio would produce:
  * betaActual = asin(mn / (11.6909 * ratio)). Returns null if the denominator or ratio is zero, or
  * if the asin input is out of [-1, 1]. */
-fun reishauerActualHelixAngle(mn: Double, combinationRatio: Double): Double? {
+fun reishauerActualHelixAngle(mn: Double, combinationRatio: Double, helixConstant: Double = REISHAUER_PROFILE.helixConstant): Double? {
     if (combinationRatio == 0.0) return null
-    val denominator = 11.6909 * combinationRatio
+    val denominator = helixConstant * combinationRatio
     if (denominator == 0.0) return null
     val asinInput = mn / denominator
     if (asinInput < -1.0 || asinInput > 1.0) return null
@@ -443,10 +449,11 @@ fun findReishauerHelisCombinations(
     targetRatioFullPrecision: Double,
     maxResults: Int = HELIS_DISPLAY_COUNT,
     internalBufferSize: Int = HELIS_INTERNAL_CANDIDATE_COUNT,
+    helixConstant: Double = REISHAUER_PROFILE.helixConstant,
 ): List<ReishauerHelisCombination> {
     val ranked = rankReishauerCombinations(REISHAUER_GEAR_LIST, targetRatioFullPrecision, internalBufferSize)
     return ranked.mapNotNull { combo ->
-        val actualAngle = reishauerActualHelixAngle(mn, combo.ratio) ?: return@mapNotNull null
+        val actualAngle = reishauerActualHelixAngle(mn, combo.ratio, helixConstant) ?: return@mapNotNull null
         val error = abs(combo.ratio - targetRatioFullPrecision)
         ReishauerHelisCombination(
             combination = combo.copy(ratio = floorToFixed(combo.ratio, 9)),

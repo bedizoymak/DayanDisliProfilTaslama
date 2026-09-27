@@ -4,7 +4,6 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.asin
 import kotlin.math.atan
-import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.sin
@@ -28,12 +27,16 @@ data class HelicalGearResult(
     val betaRad: Double,
     val helixDirection: HelixDirection,
     val diameter: Double,
+    val autoCalculatedDiameter: Double,
     val k: Double,
     val kFloor: Int,
     val kCeil: Int,
+    val kThird: Int,
     val ew: Double,
+    val xFactor: Double,
     val wkFloor: Double,
     val wkCeil: Double,
+    val wkThird: Double,
     val taksimatRatio: Double,
     val helicalGearRatio: Double,
 )
@@ -44,12 +47,14 @@ fun computeHelicalParams(
     alphaDeg: Double,
     betaDeg: Double,
     helixDirection: HelixDirection,
+    diameterOverride: Double? = null,
 ): HelicalGearResult {
     val alphaRad = alphaDeg * PI / 180.0
     val betaRad = betaDeg * PI / 180.0
 
     // Helical diameter: d = (mn / cos(beta)) * Z + 2mn
-    val diameter = (mn / cos(betaRad)) * z + 2 * mn
+    val autoCalculatedDiameter = (mn / cos(betaRad)) * z + 2 * mn
+    val diameter = diameterOverride ?: autoCalculatedDiameter
 
     // x angle calculation: x = arctan(tan(alphaRad) / cos(betaRad))
     val xRad = atan(tan(alphaRad) / cos(betaRad))
@@ -58,28 +63,32 @@ fun computeHelicalParams(
     // y for EW calculation
     val y = xDeg * PI / 180.0
 
-    // EW helical: |y - tan(xRad)|
-    val ew = abs(y - tan(xRad))
+    // EW helical: signed value, matching the shop-floor formula.
+    val ew = y - tan(xRad)
 
     // k calculation: k = (alpha * Z / 180) + 0.5
     val k = (alphaDeg * z) / 180.0 + 0.5
     var kFloor = floor(k).toInt()
-    var kCeil = ceil(k).toInt()
+    var kCeil = kFloor + 1
 
     // Clamp k values: kFloor >= 2, kCeil >= 3
     if (kFloor < 2) kFloor = 2
     if (kCeil < 3) kCeil = 3
+    val kThird = kCeil + 1
 
     val base = mn * cos(alphaRad)
+    val xFactor = (diameter - autoCalculatedDiameter) * sin(alphaRad)
 
-    val wkFloor = base * ((kFloor - 0.5) * PI + z * ew)
-    val wkCeil = base * ((kCeil - 0.5) * PI + z * ew)
+    val wkFloor = base * ((kFloor - 0.5) * PI + z * ew) + xFactor
+    val wkCeil = base * ((kCeil - 0.5) * PI + z * ew) + xFactor
+    val wkThird = base * ((kThird - 0.5) * PI + z * ew) + xFactor
 
     // Taksimat ratio: 16 / Z (for helical)
     val taksimatRatio = 16.0 / z
 
-    // Helical gear ratio: sin(betaRad) * 18 / (pi * mn), rounded to 6 decimals like the source's toFixed(6)
-    val rawRatio = (sin(betaRad) * 18.0) / (PI * mn)
+    // Helical gear ratio: inverse shop-floor convention used by the other machine profiles.
+    val sinBeta = sin(betaRad)
+    val rawRatio = if (sinBeta == 0.0) 0.0 else (PI * mn) / (18.0 * sinBeta)
     val helicalGearRatio = roundToFixed(rawRatio, 6)
 
     return HelicalGearResult(
@@ -91,22 +100,27 @@ fun computeHelicalParams(
         betaRad = betaRad,
         helixDirection = helixDirection,
         diameter = diameter,
+        autoCalculatedDiameter = autoCalculatedDiameter,
         k = k,
         kFloor = kFloor,
         kCeil = kCeil,
+        kThird = kThird,
         ew = ew,
+        xFactor = xFactor,
         wkFloor = wkFloor,
         wkCeil = wkCeil,
+        wkThird = wkThird,
         taksimatRatio = taksimatRatio,
         helicalGearRatio = helicalGearRatio,
     )
 }
 
-/** Inverts helicalGearRatio = sin(betaRad) * 18 / (pi * mn) to recover the helix angle a given
+/** Inverts helicalGearRatio = pi * mn / (18 * sin(betaRad)) to recover the helix angle a given
  * gear-combination ratio would actually produce: betaActual = asin(ratio * pi * mn / 18).
  * Returns null if the asin input is out of [-1, 1]. */
 fun helicalActualHelixAngleDeg(mn: Double, combinationRatio: Double): Double? {
-    val sinBeta = combinationRatio * PI * mn / 18.0
+    if (combinationRatio == 0.0) return null
+    val sinBeta = PI * mn / (18.0 * combinationRatio)
     if (sinBeta < -1.0 || sinBeta > 1.0) return null
     return asin(sinBeta) * 180.0 / PI
 }

@@ -1,7 +1,9 @@
 package com.dayandisli.calculator.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,17 +25,27 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dayandisli.calculator.domain.HelixDirection
 import com.dayandisli.calculator.domain.getMachineById
+import com.dayandisli.calculator.domain.normalizeReishauerAngleInput
+import com.dayandisli.calculator.domain.normalizeReishauerAngleSeparator
+import com.dayandisli.calculator.domain.toDmscs
 import com.dayandisli.calculator.domain.toFixedJs
 import com.dayandisli.calculator.ui.components.ContentContainer
 import com.dayandisli.calculator.ui.components.EngineeringDropdown
@@ -57,15 +69,37 @@ fun HelicalGearFormScreen(machineId: String, viewModel: HelicalGearViewModel = v
     val z by viewModel.z.collectAsStateWithLifecycle()
     val alphaDeg by viewModel.alphaDeg.collectAsStateWithLifecycle()
     val betaDeg by viewModel.betaDeg.collectAsStateWithLifecycle()
+    val diameter by viewModel.diameter.collectAsStateWithLifecycle()
+    val diameterOverride by viewModel.diameterOverride.collectAsStateWithLifecycle()
     val helixDirection by viewModel.helixDirection.collectAsStateWithLifecycle()
     val errors by viewModel.errors.collectAsStateWithLifecycle()
     val result by viewModel.result.collectAsStateWithLifecycle()
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
-    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()).clickable(
+            interactionSource = MutableInteractionSource(), indication = null,
+        ) {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+        },
+    ) {
         ContentContainer(
             maxWidth = Dimens.formMaxWidth,
             modifier = Modifier.padding(horizontal = Dimens.screenPaddingHorizontal, vertical = Dimens.screenPaddingVertical).fillMaxWidth(),
         ) {
+            machinePhotoRes(machineId)?.let { photoRes ->
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(Radius.lg)),
+                ) {
+                    Image(
+                        painter = painterResource(photoRes), contentDescription = machine?.name,
+                        contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(150.dp),
+                    )
+                }
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.md))
+            }
             ScreenHeader(
                 eyebrow = machine?.name ?: "Makine",
                 title = "Helis Dişli Hesaplama",
@@ -74,10 +108,10 @@ fun HelicalGearFormScreen(machineId: String, viewModel: HelicalGearViewModel = v
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
 
             SectionCard(title = "Dişli Parametreleri", icon = Icons.Filled.Sync, accent = ModuleAccent.Helical, modifier = Modifier.fillMaxWidth()) {
-                EngineeringTextField("Modül (mn)", mn, viewModel::setMn, unit = "mm")
-                EngineeringTextField("Diş Sayısı (Z)", z, viewModel::setZ, unit = "diş", keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
-                EngineeringTextField("Kavrama Açısı (α)", alphaDeg, viewModel::setAlphaDeg, unit = "°")
-                EngineeringTextField("Helis Açısı (β)", betaDeg, viewModel::setBetaDeg, unit = "°")
+                EngineeringTextField("Modül (mn)", mn, viewModel::setMn, unit = "mm", clearValueOnFirstFocus = "1.00")
+                EngineeringTextField("Diş Sayısı (Z)", z, viewModel::setZ, unit = "diş", keyboardType = KeyboardType.Number)
+                EngineeringTextField("Kavrama Açısı (α)", alphaDeg, viewModel::setAlphaDeg, unit = "D,M,S,CS", keyboardType = KeyboardType.Decimal, normalizeInput = false, formatOnFocusLost = ::normalizeReishauerAngleInput, transformWhileTyping = ::normalizeReishauerAngleSeparator, clearValueOnFirstFocus = "20°00′00″00")
+                EngineeringTextField("Helis Açısı (β)", betaDeg, viewModel::setBetaDeg, unit = "D,M,S,CS", keyboardType = KeyboardType.Decimal, normalizeInput = false, formatOnFocusLost = ::normalizeReishauerAngleInput, transformWhileTyping = ::normalizeReishauerAngleSeparator, clearValueOnFirstFocus = "15°00′00″00")
 
                 HelixDirectionSelector(
                     selected = helixDirection,
@@ -85,13 +119,17 @@ fun HelicalGearFormScreen(machineId: String, viewModel: HelicalGearViewModel = v
                     accent = ModuleAccent.Helical,
                 )
 
-                if (result != null) {
-                    Text(
-                        "Hesaplanan Çap (ø): ${String.format(java.util.Locale.US, "%.2f", result!!.diameter)} mm",
-                        color = AppColors.Slate300,
-                        style = AppType.body,
-                        modifier = Modifier.padding(bottom = Spacing.sm),
-                    )
+                EngineeringTextField(
+                    label = "Çap (ø)",
+                    value = diameter,
+                    onValueChange = viewModel::setDiameter,
+                    unit = "mm",
+                    supportingText = if (!diameterOverride) "(otomatik hesaplanan)" else null,
+                )
+                if (diameterOverride) {
+                    TextButton(onClick = viewModel::resetToAutoDiameter) {
+                        Text("Otomatik hesaplamaya dön", color = AppColors.Blue400, style = AppType.supporting)
+                    }
                 }
 
                 if (errors.isNotEmpty()) {
@@ -112,16 +150,17 @@ fun HelicalGearFormScreen(machineId: String, viewModel: HelicalGearViewModel = v
 
                 SectionCard(title = "Hesaplama Sonuçları", modifier = Modifier.fillMaxWidth()) {
                     val cells: List<Pair<String, String>> = listOf(
-                        "Modül (mn)" to r.mn.toFixedJs(4),
+                        "Modül (mn)" to r.mn.toFixedJs(2),
                         "Diş Sayısı (Z)" to r.z.toString(),
-                        "Kavrama Açısı (α)" to "${r.alphaDeg.toFixedJs(2)}°",
-                        "Helis Açısı (β)" to "${r.betaDeg.toFixedJs(2)}°",
+                        "Kavrama Açısı (α)" to r.alphaDeg.toDmscs().replace(" ", ""),
+                        "Helis Açısı (β)" to r.betaDeg.toDmscs().replace(" ", ""),
                         "Helis Yönü" to r.helixDirection.label,
                         "Çap (ø)" to "${r.diameter.toFixedJs(2)} mm",
                         "Wk (k=${r.kFloor})" to "${r.wkFloor.toFixedJs(4)} mm",
                         "Wk (k=${r.kCeil})" to "${r.wkCeil.toFixedJs(4)} mm",
-                        "Taksimat Oranı" to r.taksimatRatio.toFixedJs(6),
-                        "Helis Çark Oranı" to r.helicalGearRatio.toFixedJs(6),
+                        "Wk (k=${r.kThird})" to "${r.wkThird.toFixedJs(4)} mm",
+                        "Taksimat Oranı" to r.taksimatRatio.toFixedJs(9),
+                        "Helis Çark Oranı" to r.helicalGearRatio.toFixedJs(9),
                     )
                     cells.chunked(2).forEach { rowCells ->
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -140,7 +179,7 @@ fun HelicalGearFormScreen(machineId: String, viewModel: HelicalGearViewModel = v
                     shape = RoundedCornerShape(Radius.md),
                     colors = ButtonDefaults.buttonColors(containerColor = AppColors.Purple600),
                 ) {
-                    Text("Reçeteyi Görüntüle (PDF)", style = MaterialTheme.typography.titleSmall)
+                    Text("Reçeteyi Görüntüle", style = MaterialTheme.typography.titleSmall)
                     androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(start = Spacing.xs))
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                 }

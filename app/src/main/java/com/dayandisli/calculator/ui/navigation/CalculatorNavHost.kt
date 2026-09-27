@@ -45,15 +45,15 @@ fun CalculatorNavHost(navController: NavHostController) {
             val machineId = entry.arguments?.getString("machineId").orEmpty()
             MachineDetailScreen(
                 machineId = machineId,
-                onSpur = { navController.navigate(Destinations.spurForm(machineId)) },
+                onSpur = { navController.navigate(if (machineId in setOf(Destinations.REISHAUER_MACHINE_ID, "azdirma-genel", "gleason")) Destinations.reishauerSpurForm(machineId) else Destinations.spurForm(machineId)) },
                 onHelical = {
-                    if (machineId == Destinations.REISHAUER_MACHINE_ID) {
+                    if (machineId in setOf(Destinations.REISHAUER_MACHINE_ID, "azdirma-genel", "gleason")) {
                         navController.navigate(Destinations.reishauerForm(machineId))
                     } else {
                         navController.navigate(Destinations.helicalForm(machineId))
                     }
                 },
-                spurAvailable = machineId != Destinations.REISHAUER_MACHINE_ID,
+                spurAvailable = true,
             )
         }
 
@@ -118,6 +118,21 @@ fun CalculatorNavHost(navController: NavHostController) {
                 val parentEntry = remember(entry, navController) { navController.getBackStackEntry(Destinations.REISHAUER_FLOW) }
                 val vm: ReishauerViewModel = viewModel(parentEntry)
                 ReishauerReceiptScreen(machineId = machineId, viewModel = vm)
+            }
+        }
+
+        navigation(startDestination = Destinations.REISHAUER_SPUR_FORM, route = Destinations.REISHAUER_SPUR_FLOW, arguments = machineIdArg) {
+            composable(Destinations.REISHAUER_SPUR_FORM) { entry ->
+                val machineId = entry.arguments?.getString("machineId").orEmpty()
+                val parentEntry = remember(entry, navController) { navController.getBackStackEntry(Destinations.REISHAUER_SPUR_FLOW) }
+                val vm: ReishauerViewModel = viewModel(parentEntry)
+                ReishauerFormScreen(machineId, vm, { navController.navigate(Destinations.reishauerSpurReceipt(machineId)) }, isSpur = true)
+            }
+            composable(Destinations.REISHAUER_SPUR_RECEIPT) { entry ->
+                val machineId = entry.arguments?.getString("machineId").orEmpty()
+                val parentEntry = remember(entry, navController) { navController.getBackStackEntry(Destinations.REISHAUER_SPUR_FLOW) }
+                val vm: ReishauerViewModel = viewModel(parentEntry)
+                ReishauerReceiptScreen(machineId, vm, isSpur = true)
             }
         }
     }

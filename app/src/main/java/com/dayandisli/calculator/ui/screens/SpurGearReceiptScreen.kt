@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dayandisli.calculator.domain.getMachineById
 import com.dayandisli.calculator.domain.toFixedJs
+import com.dayandisli.calculator.domain.toDmscs
 import com.dayandisli.calculator.pdf.PdfReceiptGenerator
 import com.dayandisli.calculator.ui.components.ContentContainer
 import com.dayandisli.calculator.ui.components.GearCombinationsSection
@@ -93,14 +94,14 @@ fun SpurGearReceiptScreen(machineId: String, viewModel: SpurGearViewModel = view
 
             SectionCard(title = "Parametreler", icon = Icons.Filled.Description, accent = ModuleAccent.Spur, modifier = Modifier.fillMaxWidth()) {
                 val cells = listOf(
-                    "Modül (mn)" to "${r.mn.toFixedJs(4)}",
+                    "Modül (mn)" to "${r.mn.toFixedJs(2)}",
                     "Diş Sayısı (Z)" to r.z.toString(),
-                    "Kavrama Açısı (α)" to "${r.alphaDeg.toFixedJs(2)}°",
+                    "Kavrama Açısı (α)" to r.alphaDeg.toDmscs().replace(" ", ""),
                     "Çap (ø)" to "${r.diameter.toFixedJs(2)} mm",
                     "Wk (k=${r.kFloor})" to "${r.wkFloor.toFixedJs(4)} mm",
                     "Wk (k=${r.kCeil})" to "${r.wkCeil.toFixedJs(4)} mm",
-                    "Taksimat Oranı" to r.taksimatRatio.toFixedJs(6),
-                    "k değeri" to r.k.toFixedJs(4),
+                    "Wk (k=${r.kThird})" to "${r.wkThird.toFixedJs(4)} mm",
+                    "Taksimat Oranı" to r.taksimatRatio.toFixedJs(9),
                 )
                 cells.chunked(2).forEach { rowCells ->
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {

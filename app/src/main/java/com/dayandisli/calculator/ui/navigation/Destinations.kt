@@ -20,6 +20,9 @@ object Destinations {
     const val REISHAUER_FLOW = "reishauerFlow/{machineId}"
     const val REISHAUER_FORM = "reishauerFlow/{machineId}/form"
     const val REISHAUER_RECEIPT = "reishauerFlow/{machineId}/receipt"
+    const val REISHAUER_SPUR_FLOW = "reishauerSpurFlow/{machineId}"
+    const val REISHAUER_SPUR_FORM = "reishauerSpurFlow/{machineId}/form"
+    const val REISHAUER_SPUR_RECEIPT = "reishauerSpurFlow/{machineId}/receipt"
 
     fun machineDetail(machineId: String) = "machines/$machineId"
     fun spurFlow(machineId: String) = "spurFlow/$machineId"
@@ -31,6 +34,8 @@ object Destinations {
     fun reishauerFlow(machineId: String) = "reishauerFlow/$machineId"
     fun reishauerForm(machineId: String) = "reishauerFlow/$machineId/form"
     fun reishauerReceipt(machineId: String) = "reishauerFlow/$machineId/receipt"
+    fun reishauerSpurForm(machineId: String) = "reishauerSpurFlow/$machineId/form"
+    fun reishauerSpurReceipt(machineId: String) = "reishauerSpurFlow/$machineId/receipt"
 
     const val REISHAUER_MACHINE_ID = "reishauer-taslama"
 

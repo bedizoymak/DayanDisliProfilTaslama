@@ -52,7 +52,7 @@ import com.dayandisli.calculator.ui.theme.Spacing
 
 /** Real machine photography, ported from CEHA's res/drawable (ic_1..ic_10.jpg). Two machines
  * (Gleason/Hurth/Liebherr beyond what the source photo set covers) fall back to the icon badge. */
-private fun machinePhotoRes(machineId: String): Int? = when (machineId) {
+fun machinePhotoRes(machineId: String): Int? = when (machineId) {
     "kucuk-azdirma" -> R.drawable.machine_kucuk_azdirma
     "reishauer-taslama" -> R.drawable.machine_reishauer_taslama
     "yatay-azdirma" -> R.drawable.machine_yatay_azdirma
@@ -66,7 +66,7 @@ private fun machinePhotoRes(machineId: String): Int? = when (machineId) {
     else -> null
 }
 
-private val supportedMachineIds = setOf("kucuk-azdirma", "reishauer-taslama")
+private val supportedMachineIds = setOf("kucuk-azdirma", "reishauer-taslama", "azdirma-genel", "gleason")
 
 /** Reproduces pages/MachineSelection.tsx: responsive grid of machine cards, each showing the real
  * machine photo (with a dark gradient scrim for text legibility) or an icon badge fallback, name,

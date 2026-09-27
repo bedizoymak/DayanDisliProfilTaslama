@@ -2,6 +2,11 @@ package com.dayandisli.calculator.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -61,7 +67,7 @@ private fun Fraction(
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun FractionExpression(combination: GearCombination, accentColor: Color, modifier: Modifier = Modifier) {
+fun FractionExpression(combination: GearCombination, accentColor: Color, modifier: Modifier = Modifier, reverseFractions: Boolean = false) {
     val c = combination.c
     val d = combination.d
     val isFourGear = c != null && d != null
@@ -85,10 +91,10 @@ fun FractionExpression(combination: GearCombination, accentColor: Color, modifie
             modifier = Modifier.align(Alignment.CenterVertically).padding(horizontal = Spacing.sm),
         )
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.align(Alignment.CenterVertically)) {
-            Fraction(combination.a.toString(), combination.b.toString(), accentColor)
+            Fraction(if (reverseFractions) combination.b.toString() else combination.a.toString(), if (reverseFractions) combination.a.toString() else combination.b.toString(), accentColor)
             if (isFourGear && c != null && d != null) {
                 Text(" × ", color = AppColors.Slate400, style = AppType.resultValueSmall, modifier = Modifier.padding(horizontal = Spacing.xs))
-                Fraction(c.toString(), d.toString(), accentColor)
+                Fraction(if (reverseFractions) d.toString() else c.toString(), if (reverseFractions) c.toString() else d.toString(), accentColor)
             }
         }
     }
@@ -142,12 +148,17 @@ fun GearCombinationCard(
             }
 
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.sm))
-            FractionExpression(combination, accentColor, modifier = Modifier.fillMaxWidth())
+            FractionExpression(
+                combination,
+                accentColor,
+                modifier = Modifier.fillMaxWidth(),
+                reverseFractions = realizedHelixAngleDeg != null,
+            )
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.md))
 
-            MetricRow("Çark Oranı", combination.ratio.toFixedJs(6))
-            MetricRow("Hedef Oran", targetRatio.toFixedJs(6))
-            MetricRow("Hata", error.toFixedJs(9))
+            MetricRow("Çark Oranı", combination.ratio.toFixedJs(9))
+            MetricRow("Hedef Oran", targetRatio.toFixedJs(9))
+            if (error == 0.0) PerfectMatchMetricRow() else MetricRow("Hata", error.toFixedJs(9))
             if (realizedHelixAngleDeg != null) {
                 MetricRow("Gerçekleşen Helis Açısı", realizedHelixAngleDeg.toDmscs())
                 if (requestedHelixAngleDeg != null) {
@@ -166,6 +177,30 @@ private fun MetricRow(label: String, value: String) {
     ) {
         Text(label, color = AppColors.Slate400, style = AppType.supporting)
         Text(value, color = Color.White, style = AppType.monoLabel, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun PerfectMatchMetricRow() {
+    val transition = rememberInfiniteTransition(label = "perfectMatchBlink")
+    val alpha = transition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.35f,
+        animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
+        label = "perfectMatchAlpha",
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text("Hata", color = AppColors.Slate400, style = AppType.supporting)
+        Text(
+            "Mükemmel",
+            color = AppColors.Emerald400,
+            style = AppType.monoLabel,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.graphicsLayer(alpha = alpha.value),
+        )
     }
 }
 

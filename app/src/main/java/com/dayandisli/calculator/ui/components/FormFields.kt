@@ -69,6 +69,7 @@ fun EngineeringTextField(
     transformWhileTyping: ((String) -> String)? = null,
     clearValueOnFirstFocus: String? = null,
     isError: Boolean = false,
+    readOnly: Boolean = false,
 ) {
     var wasFocused by remember { mutableStateOf(false) }
     var hasReceivedFocus by remember { mutableStateOf(false) }
@@ -105,7 +106,7 @@ fun EngineeringTextField(
                 .fillMaxWidth()
                 .padding(top = 4.dp)
                 .onFocusChanged { state ->
-                    if (!wasFocused && state.isFocused && !hasReceivedFocus && value == clearValueOnFirstFocus) {
+                    if (!wasFocused && state.isFocused && !hasReceivedFocus && !readOnly) {
                         onValueChange("")
                     }
                     if (wasFocused && !state.isFocused && formatOnFocusLost != null) {
@@ -116,7 +117,7 @@ fun EngineeringTextField(
                 },
             keyboardOptions = KeyboardOptions(
                 keyboardType = keyboardType,
-                imeAction = if (formatOnFocusLost != null) ImeAction.Done else ImeAction.Next,
+                imeAction = ImeAction.Done,
             ),
             keyboardActions = KeyboardActions(
                 onDone = {
@@ -126,6 +127,7 @@ fun EngineeringTextField(
             ),
             colors = engineeringFieldColors(),
             singleLine = true,
+            readOnly = readOnly,
             isError = isError,
             placeholder = placeholder?.let { { Text(it, style = AppType.body, color = AppColors.Slate500) } },
             suffix = if (unit != null) {

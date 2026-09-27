@@ -5,6 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dayandisli.calculator.domain.GearCombination
 import com.dayandisli.calculator.domain.HelixDirection
+import com.dayandisli.calculator.domain.MachineCalculationProfile
+import com.dayandisli.calculator.domain.REISHAUER_PROFILE
+import com.dayandisli.calculator.domain.GENERAL_HOBBING_PROFILE
+import com.dayandisli.calculator.domain.LATHE_PROFILE
 import com.dayandisli.calculator.domain.ReishauerHelisCombination
 import com.dayandisli.calculator.domain.ReishauerResult
 import com.dayandisli.calculator.domain.computeReishauerNominalDiameter
@@ -33,11 +37,13 @@ import kotlinx.coroutines.withContext
  * overridden manually (the override field takes precedence when non-blank). */
 class ReishauerViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {
 
-    val mn: StateFlow<String> = savedStateHandle.getStateFlow(KEY_MN, "2.5")
+    val mn: StateFlow<String> = savedStateHandle.getStateFlow(KEY_MN, "2.50")
     val z: StateFlow<String> = savedStateHandle.getStateFlow(KEY_Z, "20")
     val alphaRaw: StateFlow<String> = savedStateHandle.getStateFlow(KEY_ALPHA, "20°00′00″00")
     val betaRaw: StateFlow<String> = savedStateHandle.getStateFlow(KEY_BETA, "15°00′00″00")
     val diameterOverride: StateFlow<String> = savedStateHandle.getStateFlow(KEY_DIAMETER, "")
+    val isDiameterManual: StateFlow<Boolean> = savedStateHandle.getStateFlow(KEY_DIAMETER_MANUAL, false)
+    private val profileId: StateFlow<String> = savedStateHandle.getStateFlow(KEY_PROFILE, "reishauer")
     val helixDirection: StateFlow<HelixDirection> =
         savedStateHandle.getStateFlow(KEY_DIRECTION, HelixDirection.SAG.name)
             .map { HelixDirection.valueOf(it) }
@@ -47,8 +53,16 @@ class ReishauerViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
     fun setZ(value: String) { savedStateHandle[KEY_Z] = value }
     fun setAlphaRaw(value: String) { savedStateHandle[KEY_ALPHA] = value }
     fun setBetaRaw(value: String) { savedStateHandle[KEY_BETA] = value }
-    fun setDiameterOverride(value: String) { savedStateHandle[KEY_DIAMETER] = value }
+    fun setDiameterOverride(value: String) { savedStateHandle[KEY_DIAMETER_MANUAL] = true; savedStateHandle[KEY_DIAMETER] = value }
+    fun resetToAutoDiameter() { savedStateHandle[KEY_DIAMETER_MANUAL] = false; savedStateHandle[KEY_DIAMETER] = "" }
     fun setHelixDirection(value: HelixDirection) { savedStateHandle[KEY_DIRECTION] = value.name }
+    fun useSpurMode() { savedStateHandle[KEY_BETA] = "0°00′00″00" }
+    fun configureMachine(machineId: String) { savedStateHandle[KEY_PROFILE] = machineId }
+    private fun profileFor(id: String): MachineCalculationProfile = when (id) {
+        "azdirma-genel" -> GENERAL_HOBBING_PROFILE
+        "gleason" -> LATHE_PROFILE
+        else -> REISHAUER_PROFILE
+    }
 
     /** Auto-calculated nominal diameter shown in the form as a live preview; null while mn/z/beta
      * are incomplete or invalid. */
@@ -59,8 +73,12 @@ class ReishauerViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
         if (mnVal == null || zVal == null || betaVal == null) null else computeReishauerNominalDiameter(mnVal, zVal, betaVal)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    private val effectiveDiameter: StateFlow<Double?> = combine(diameterOverride, autoDiameter) { override, auto ->
-        if (override.isBlank()) auto else parseLocaleDouble(override)
+    val displayDiameter: StateFlow<String> = combine(diameterOverride, isDiameterManual, autoDiameter) { override, manual, auto ->
+        if (manual) override else auto?.let { String.format(java.util.Locale.US, "%.2f", it) } ?: ""
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    private val effectiveDiameter: StateFlow<Double?> = combine(diameterOverride, isDiameterManual, autoDiameter) { override, manual, auto ->
+        if (!manual) auto else parseLocaleDouble(override)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val errors: StateFlow<List<String>> = combine(mn, z, effectiveDiameter, alphaRaw, betaRaw) { mnStr, zStr, diameter, alphaStr, betaStr ->
@@ -90,7 +108,7 @@ class ReishauerViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
      * (mirrors SpurGearViewModel/HelicalGearViewModel: the "view receipt" CTA is only shown when
      * result != null, and the CEHA bug of navigating before validating is fixed by construction). */
     val result: StateFlow<ReishauerResult?> =
-        combine(formSnapshot, effectiveDiameter) { snapshot, diameter ->
+        combine(formSnapshot, effectiveDiameter, profileId) { snapshot, diameter, profileId ->
             val mnVal = parseLocaleDouble(snapshot.mnStr)
             val zVal = parseLocaleInt(snapshot.zStr)
             val alphaVal = parseReishauerAngle(snapshot.alphaStr)
@@ -100,7 +118,7 @@ class ReishauerViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
             if (mnVal == null || zVal == null || alphaVal == null || betaVal == null || diameter == null || hasErrors) {
                 null
             } else {
-                computeReishauerParams(mnVal, zVal, alphaVal, snapshot.alphaStr, betaVal, snapshot.betaStr, snapshot.direction, diameter)
+                computeReishauerParams(mnVal, zVal, alphaVal, snapshot.alphaStr, betaVal, snapshot.betaStr, snapshot.direction, diameter, profileFor(profileId))
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
@@ -116,17 +134,19 @@ class ReishauerViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
     /** [helixGearRatioFullPrecision] (not the display-rounded ratio) is used as the Helis search
      * target, per [com.dayandisli.calculator.domain.findReishauerHelisCombinations]. */
     fun ensureCombinationsFor(z: Int, mn: Double, betaRequestedDeg: Double, helixGearRatioFullPrecision: Double) {
-        val key = listOf(z, mn, betaRequestedDeg, helixGearRatioFullPrecision)
+        val key = listOf(z, mn, betaRequestedDeg, helixGearRatioFullPrecision, profileId.value)
         if (combinationsForKey == key && _taksimatCombinations.value != null && _helisCombinations.value != null) return
         combinationsJob?.cancel()
         combinationsForKey = key
         _taksimatCombinations.value = null
         _helisCombinations.value = null
         combinationsJob = viewModelScope.launch {
-            val taksimat = withContext(Dispatchers.Default) { findReishauerTaksimatCombinations(z) }
+            val taksimat = withContext(Dispatchers.Default) {
+                findReishauerTaksimatCombinations(z, taksimatDivisor = profileFor(profileId.value).taksimatDivisor)
+            }
             _taksimatCombinations.value = taksimat
             val helis = withContext(Dispatchers.Default) {
-                findReishauerHelisCombinations(mn, betaRequestedDeg, helixGearRatioFullPrecision)
+                findReishauerHelisCombinations(mn, betaRequestedDeg, helixGearRatioFullPrecision, helixConstant = profileFor(profileId.value).helixConstant)
             }
             _helisCombinations.value = helis
         }
@@ -138,6 +158,8 @@ class ReishauerViewModel(private val savedStateHandle: SavedStateHandle) : ViewM
         private const val KEY_ALPHA = "reishauer_alpha"
         private const val KEY_BETA = "reishauer_beta"
         private const val KEY_DIAMETER = "reishauer_diameter"
+        private const val KEY_DIAMETER_MANUAL = "reishauer_diameter_manual"
+        private const val KEY_PROFILE = "reishauer_profile"
         private const val KEY_DIRECTION = "reishauer_direction"
     }
 }

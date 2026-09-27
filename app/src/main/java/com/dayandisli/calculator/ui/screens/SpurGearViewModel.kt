@@ -9,6 +9,7 @@ import com.dayandisli.calculator.domain.computeSpurParams
 import com.dayandisli.calculator.domain.findSpurCombinations
 import com.dayandisli.calculator.domain.parseLocaleDouble
 import com.dayandisli.calculator.domain.parseLocaleInt
+import com.dayandisli.calculator.domain.parseReishauerAngle
 import com.dayandisli.calculator.domain.validateSpurInputs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -28,9 +29,9 @@ import kotlinx.coroutines.withContext
  */
 class SpurGearViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {
 
-    val mn: StateFlow<String> = savedStateHandle.getStateFlow(KEY_MN, "1.0")
+    val mn: StateFlow<String> = savedStateHandle.getStateFlow(KEY_MN, "1.00")
     val z: StateFlow<String> = savedStateHandle.getStateFlow(KEY_Z, "20")
-    val alphaDeg: StateFlow<String> = savedStateHandle.getStateFlow(KEY_ALPHA, "20.0")
+    val alphaDeg: StateFlow<String> = savedStateHandle.getStateFlow(KEY_ALPHA, "20°00′00″00")
     val diameter: StateFlow<String> = savedStateHandle.getStateFlow(KEY_DIAMETER, DEFAULT_DIAMETER)
     val diameterOverride: StateFlow<Boolean> = savedStateHandle.getStateFlow(KEY_OVERRIDE, false)
 
@@ -68,7 +69,7 @@ class SpurGearViewModel(private val savedStateHandle: SavedStateHandle) : ViewMo
     val errors: StateFlow<List<String>> = combine(mn, z, alphaDeg, diameter) { mnStr, zStr, alphaStr, diaStr ->
         val mnVal = parseLocaleDouble(mnStr)
         val zVal = parseLocaleInt(zStr)
-        val alphaVal = parseLocaleDouble(alphaStr)
+        val alphaVal = parseReishauerAngle(alphaStr)
         val diaVal = parseLocaleDouble(diaStr)
         if (mnVal == null || zVal == null || alphaVal == null || diaVal == null) {
             emptyList()
@@ -80,7 +81,7 @@ class SpurGearViewModel(private val savedStateHandle: SavedStateHandle) : ViewMo
     val result: StateFlow<SpurGearResult?> = combine(mn, z, alphaDeg, diameter) { mnStr, zStr, alphaStr, diaStr ->
         val mnVal = parseLocaleDouble(mnStr)
         val zVal = parseLocaleInt(zStr)
-        val alphaVal = parseLocaleDouble(alphaStr)
+        val alphaVal = parseReishauerAngle(alphaStr)
         val diaVal = parseLocaleDouble(diaStr)
         if (mnVal == null || zVal == null || alphaVal == null || diaVal == null) {
             null

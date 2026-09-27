@@ -11,6 +11,7 @@ import com.dayandisli.calculator.domain.findHelicalCombinations
 import com.dayandisli.calculator.domain.findTaksimatCombinations
 import com.dayandisli.calculator.domain.parseLocaleDouble
 import com.dayandisli.calculator.domain.parseLocaleInt
+import com.dayandisli.calculator.domain.parseReishauerAngle
 import com.dayandisli.calculator.domain.validateHelicalInputs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -26,40 +27,60 @@ import kotlinx.coroutines.withContext
 
 class HelicalGearViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {
 
-    val mn: StateFlow<String> = savedStateHandle.getStateFlow(KEY_MN, "1.0")
+    val mn: StateFlow<String> = savedStateHandle.getStateFlow(KEY_MN, "1.00")
     val z: StateFlow<String> = savedStateHandle.getStateFlow(KEY_Z, "20")
-    val alphaDeg: StateFlow<String> = savedStateHandle.getStateFlow(KEY_ALPHA, "20.0")
-    val betaDeg: StateFlow<String> = savedStateHandle.getStateFlow(KEY_BETA, "15.0")
+    val alphaDeg: StateFlow<String> = savedStateHandle.getStateFlow(KEY_ALPHA, "20°00′00″00")
+    val betaDeg: StateFlow<String> = savedStateHandle.getStateFlow(KEY_BETA, "15°00′00″00")
+    val diameter: StateFlow<String> = savedStateHandle.getStateFlow(KEY_DIAMETER, "22.71")
+    val diameterOverride: StateFlow<Boolean> = savedStateHandle.getStateFlow(KEY_DIAMETER_OVERRIDE, false)
     val helixDirection: StateFlow<HelixDirection> =
         savedStateHandle.getStateFlow(KEY_DIRECTION, HelixDirection.SAG.name)
             .map { HelixDirection.valueOf(it) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HelixDirection.SAG)
 
-    fun setMn(value: String) { savedStateHandle[KEY_MN] = value }
-    fun setZ(value: String) { savedStateHandle[KEY_Z] = value }
+    fun setMn(value: String) { savedStateHandle[KEY_MN] = value; if (!diameterOverride.value) recalculateAutoDiameter() }
+    fun setZ(value: String) { savedStateHandle[KEY_Z] = value; if (!diameterOverride.value) recalculateAutoDiameter() }
     fun setAlphaDeg(value: String) { savedStateHandle[KEY_ALPHA] = value }
-    fun setBetaDeg(value: String) { savedStateHandle[KEY_BETA] = value }
+    fun setBetaDeg(value: String) { savedStateHandle[KEY_BETA] = value; if (!diameterOverride.value) recalculateAutoDiameter() }
+    fun setDiameter(value: String) { savedStateHandle[KEY_DIAMETER_OVERRIDE] = true; savedStateHandle[KEY_DIAMETER] = value }
+    fun resetToAutoDiameter() { savedStateHandle[KEY_DIAMETER_OVERRIDE] = false; recalculateAutoDiameter() }
+    private fun recalculateAutoDiameter() {
+        val mnValue = parseLocaleDouble(mn.value) ?: return
+        val zValue = parseLocaleInt(z.value) ?: return
+        val betaValue = parseReishauerAngle(betaDeg.value) ?: return
+        val value = (mnValue / kotlin.math.cos(betaValue * kotlin.math.PI / 180.0)) * zValue + 2 * mnValue
+        savedStateHandle[KEY_DIAMETER] = String.format(java.util.Locale.US, "%.2f", value)
+    }
     fun setHelixDirection(value: HelixDirection) { savedStateHandle[KEY_DIRECTION] = value.name }
 
     val errors: StateFlow<List<String>> = combine(mn, z, betaDeg) { mnStr, zStr, betaStr ->
         val mnVal = parseLocaleDouble(mnStr)
         val zVal = parseLocaleInt(zStr)
-        val betaVal = parseLocaleDouble(betaStr)
+        val betaVal = parseReishauerAngle(betaStr)
         if (mnVal == null || zVal == null || betaVal == null) emptyList() else validateHelicalInputs(mnVal, zVal, betaVal)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val result: StateFlow<HelicalGearResult?> =
-        combine(mn, z, alphaDeg, betaDeg, helixDirection) { mnStr, zStr, alphaStr, betaStr, direction ->
+        combine(
+            combine(mn, z, alphaDeg, betaDeg, diameter) { mnStr, zStr, alphaStr, betaStr, diameterStr ->
+                listOf(mnStr, zStr, alphaStr, betaStr, diameterStr)
+            },
+            helixDirection,
+        ) { values, direction ->
+            val (mnStr, zStr, alphaStr, betaStr, diameterStr) = values
             val mnVal = parseLocaleDouble(mnStr)
             val zVal = parseLocaleInt(zStr)
-            val alphaVal = parseLocaleDouble(alphaStr)
-            val betaVal = parseLocaleDouble(betaStr)
+            val alphaVal = parseReishauerAngle(alphaStr)
+            val betaVal = parseReishauerAngle(betaStr)
+            val diameterVal = parseLocaleDouble(diameterStr)
             if (mnVal == null || zVal == null || alphaVal == null || betaVal == null) {
                 null
             } else if (validateHelicalInputs(mnVal, zVal, betaVal).isNotEmpty()) {
                 null
+            } else if (diameterVal == null) {
+                null
             } else {
-                computeHelicalParams(mnVal, zVal, alphaVal, betaVal, direction)
+                computeHelicalParams(mnVal, zVal, alphaVal, betaVal, direction, diameterVal)
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
@@ -93,5 +114,7 @@ class HelicalGearViewModel(private val savedStateHandle: SavedStateHandle) : Vie
         private const val KEY_ALPHA = "helical_alpha"
         private const val KEY_BETA = "helical_beta"
         private const val KEY_DIRECTION = "helical_direction"
+        private const val KEY_DIAMETER = "helical_diameter"
+        private const val KEY_DIAMETER_OVERRIDE = "helical_diameter_override"
     }
 }

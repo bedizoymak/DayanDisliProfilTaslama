@@ -87,7 +87,7 @@ object PdfReceiptGenerator {
                 listOf(
                     Triple("MODÜL", result.mn.toFixedJs(4), "mn"),
                     Triple("DİŞ SAYISI", result.z.toString(), "Z"),
-                    Triple("KAVRAMA AÇISI", result.alphaDeg.toFixedJs(2), "°"),
+                    Triple("KAVRAMA AÇISI", result.alphaDeg.toDmscs().replace(" ", ""), ""),
                     Triple("ÇAP", result.diameter.toFixedJs(2), "mm"),
                 ),
             )
@@ -97,9 +97,9 @@ object PdfReceiptGenerator {
                 listOf(
                     Triple("Modül (mn)", result.mn.toFixedJs(4), "mm"),
                     Triple("Diş Sayısı (Z)", result.z.toString(), ""),
-                    Triple("Kavrama Açısı (α)", result.alphaDeg.toFixedJs(2), "°"),
+                    Triple("Kavrama Açısı (α)", result.alphaDeg.toDmscs().replace(" ", ""), ""),
                     Triple("Çap (ø)", result.diameter.toFixedJs(2), "mm"),
-                    Triple("Taksimat Oranı", result.taksimatRatio.toFixedJs(6), ""),
+                    Triple("Taksimat Oranı", result.taksimatRatio.toFixedJs(9), ""),
                 ),
             )
 
@@ -108,6 +108,7 @@ object PdfReceiptGenerator {
                 listOf(
                     Triple(result.kFloor, result.wkFloor, "mm"),
                     Triple(result.kCeil, result.wkCeil, "mm"),
+                    Triple(result.kThird, result.wkThird, "mm"),
                 ),
             )
 
@@ -139,8 +140,8 @@ object PdfReceiptGenerator {
                 listOf(
                     Triple("MODÜL", result.mn.toFixedJs(4), "mn"),
                     Triple("DİŞ SAYISI", result.z.toString(), "Z"),
-                    Triple("KAVRAMA AÇISI", result.alphaDeg.toFixedJs(2), "°"),
-                    Triple("HELİS AÇISI", "${result.betaDeg.toFixedJs(2)} (${result.helixDirection.label})", "°"),
+                    Triple("KAVRAMA AÇISI", result.alphaDeg.toDmscs().replace(" ", ""), ""),
+                    Triple("HELİS AÇISI", "${result.betaDeg.toDmscs().replace(" ", "")} (${result.helixDirection.label})", ""),
                     Triple("ÇAP", result.diameter.toFixedJs(2), "mm"),
                 ),
             )
@@ -150,12 +151,12 @@ object PdfReceiptGenerator {
                 listOf(
                     Triple("Modül (mn)", result.mn.toFixedJs(4), "mm"),
                     Triple("Diş Sayısı (Z)", result.z.toString(), ""),
-                    Triple("Kavrama Açısı (α)", result.alphaDeg.toFixedJs(2), "°"),
-                    Triple("Helis Açısı (β)", result.betaDeg.toFixedJs(2), "°"),
+                    Triple("Kavrama Açısı (α)", result.alphaDeg.toDmscs().replace(" ", ""), ""),
+                    Triple("Helis Açısı (β)", result.betaDeg.toDmscs().replace(" ", ""), ""),
                     Triple("Helis Yönü", result.helixDirection.label, ""),
                     Triple("Çap (ø)", result.diameter.toFixedJs(2), "mm"),
-                    Triple("Taksimat Oranı", result.taksimatRatio.toFixedJs(6), ""),
-                    Triple("Helis Çark Oranı", result.helicalGearRatio.toFixedJs(6), ""),
+                    Triple("Taksimat Oranı", result.taksimatRatio.toFixedJs(9), ""),
+                    Triple("Helis Çark Oranı", result.helicalGearRatio.toFixedJs(9), ""),
                 ),
             )
 
@@ -164,6 +165,7 @@ object PdfReceiptGenerator {
                 listOf(
                     Triple(result.kFloor, result.wkFloor, "mm"),
                     Triple(result.kCeil, result.wkCeil, "mm"),
+                    Triple(result.kThird, result.wkThird, "mm"),
                 ),
             )
 
@@ -214,7 +216,7 @@ object PdfReceiptGenerator {
                     Triple("Helis Yönü", result.helixDirection.label, ""),
                     Triple("Çap (ø)", result.diameter.toFixedJs(2), "mm"),
                     Triple("Nominal Çap", result.nominalDiameter.toFixedJs(2), "mm"),
-                    Triple("Taksimat Oranı", result.taksimatRatio.toFixedJs(6), ""),
+                    Triple("Taksimat Oranı", result.taksimatRatio.toFixedJs(9), ""),
                     Triple("Helis Çark Oranı", result.helixGearRatio.toFixedJs(9), ""),
                 ),
             )

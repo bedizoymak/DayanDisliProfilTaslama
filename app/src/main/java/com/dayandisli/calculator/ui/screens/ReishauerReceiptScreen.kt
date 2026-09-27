@@ -47,7 +47,7 @@ import com.dayandisli.calculator.ui.theme.Spacing
 /** REISHAUER Taşlama's dedicated receipt: k1/k2/k3 + Wk1/Wk2/Wk3, then Taksimat and Helis
  * gear-combination fraction cards (2-gear/4-gear), matching the Spur/Helical receipt structure. */
 @Composable
-fun ReishauerReceiptScreen(machineId: String, viewModel: ReishauerViewModel = viewModel()) {
+fun ReishauerReceiptScreen(machineId: String, viewModel: ReishauerViewModel = viewModel(), isSpur: Boolean = false) {
     val machine = getMachineById(machineId)
     val result by viewModel.result.collectAsStateWithLifecycle()
     val taksimatCombinations by viewModel.taksimatCombinations.collectAsStateWithLifecycle()
@@ -85,15 +85,15 @@ fun ReishauerReceiptScreen(machineId: String, viewModel: ReishauerViewModel = vi
                 modifier = Modifier.fillMaxWidth().aspectRatio(21f / 9f).clip(RoundedCornerShape(Radius.lg)),
             ) {
                 Image(
-                    painter = painterResource(R.drawable.machine_reishauer_taslama),
-                    contentDescription = "REISHAUER Taşlama makinesi",
+                    painter = painterResource(machinePhotoRes(machineId) ?: R.drawable.machine_reishauer_taslama),
+                    contentDescription = machine.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxWidth().aspectRatio(21f / 9f),
                 )
             }
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.md))
 
-            ScreenHeader(eyebrow = machine.name, title = "Reishauer Üretim Reçetesi", subtitle = "Taksimat ve helis çark kombinasyonları dahil")
+            ScreenHeader(eyebrow = machine.name, title = "${machine.name} ${if (isSpur) "Düz Dişli" else "Helis Dişli"} Üretim Reçetesi", subtitle = if (isSpur) "Taksimat çark kombinasyonları dahil" else "Taksimat ve helis çark kombinasyonları dahil")
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.lg))
 
             ReceiptActionBar(
@@ -117,18 +117,17 @@ fun ReishauerReceiptScreen(machineId: String, viewModel: ReishauerViewModel = vi
 
             SectionCard(title = "Parametreler", icon = Icons.Filled.Description, accent = ModuleAccent.Helical, modifier = Modifier.fillMaxWidth()) {
                 val cells = listOf(
-                    "Modül (mn)" to r.mn.toFixedJs(4),
+                    "Modül (mn)" to r.mn.toFixedJs(2),
                     "Diş Sayısı (Z)" to r.z.toString(),
                     "Kavrama Açısı (α)" to r.alphaRaw,
-                    "Helis Açısı (β)" to r.betaRaw,
-                    "Helis Yönü" to r.helixDirection.label,
+                    *if (!isSpur) arrayOf("Helis Açısı (β)" to r.betaRaw, "Helis Yönü" to r.helixDirection.label) else emptyArray(),
                     "Çap (ø)" to "${r.diameter.toFixedJs(2)} mm",
                     "Nominal Çap" to "${r.nominalDiameter.toFixedJs(2)} mm",
                     "Wk (k=${r.k1})" to "${r.wk1.toFixedJs(4)} mm",
                     "Wk (k=${r.k2})" to "${r.wk2.toFixedJs(4)} mm",
                     "Wk (k=${r.k3})" to "${r.wk3.toFixedJs(4)} mm",
-                    "Taksimat Oranı" to r.taksimatRatio.toFixedJs(6),
-                    "Helis Çark Oranı" to r.helixGearRatio.toFixedJs(9),
+                    "Taksimat Oranı" to r.taksimatRatio.toFixedJs(9),
+                    *if (!isSpur) arrayOf("Helis Çark Oranı" to r.helixGearRatio.toFixedJs(9)) else emptyArray(),
                 )
                 cells.chunked(2).forEach { rowCells ->
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
@@ -154,6 +153,7 @@ fun ReishauerReceiptScreen(machineId: String, viewModel: ReishauerViewModel = vi
                     targetRatio = r.taksimatRatio,
                     accentColor = AppColors.Blue400,
                 )
+                if (!isSpur) {
                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = Spacing.md))
                 ReishauerHelisCombinationsSection(
                     combinations = helisCombinations!!,
@@ -161,6 +161,7 @@ fun ReishauerReceiptScreen(machineId: String, viewModel: ReishauerViewModel = vi
                     targetRatio = r.helixGearRatioFullPrecision,
                     accentColor = AppColors.Emerald400,
                 )
+                }
             }
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 80.dp))
         }

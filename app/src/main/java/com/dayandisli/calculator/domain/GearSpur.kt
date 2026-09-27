@@ -2,7 +2,6 @@ package com.dayandisli.calculator.domain
 
 import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.tan
@@ -18,10 +17,12 @@ data class SpurGearResult(
     val k: Double,
     val kFloor: Int,
     val kCeil: Int,
+    val kThird: Int,
     val ew: Double,
     val xFactor: Double,
     val wkFloor: Double,
     val wkCeil: Double,
+    val wkThird: Double,
     val taksimatRatio: Double,
 )
 
@@ -40,10 +41,12 @@ fun computeSpurParams(
     // k calculation: k = (alpha * Z / 180) + 0.5
     val k = (alphaDeg * z) / 180.0 + 0.5
     val kFloor = floor(k).toInt()
-    val kCeil = ceil(k).toInt()
+    // Three consecutive shop-floor span measurements, aligned with Reishauer.
+    val kCeil = kFloor + 1
+    val kThird = kFloor + 2
 
-    // EW (involute function): EW = |alphaRad - tan(alphaRad)|
-    val ew = abs(alphaRad - tan(alphaRad))
+    // EW (involute function): signed value, matching the shop-floor formula.
+    val ew = alphaRad - tan(alphaRad)
 
     // xFactor (profile/diameter correction)
     val dTarget = autoCalculatedDiameter
@@ -56,6 +59,7 @@ fun computeSpurParams(
 
     val wkFloor = base * ((kFloor - 0.5) * PI + z * ew) + xFactor
     val wkCeil = base * ((kCeil - 0.5) * PI + z * ew) + xFactor
+    val wkThird = base * ((kThird - 0.5) * PI + z * ew) + xFactor
 
     // Taksimat ratio: 8 / Z
     val taksimatRatio = 8.0 / z
@@ -70,10 +74,12 @@ fun computeSpurParams(
         k = k,
         kFloor = kFloor,
         kCeil = kCeil,
+        kThird = kThird,
         ew = ew,
         xFactor = xFactor,
         wkFloor = wkFloor,
         wkCeil = wkCeil,
+        wkThird = wkThird,
         taksimatRatio = taksimatRatio,
     )
 }
